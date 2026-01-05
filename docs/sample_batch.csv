@@ -1,0 +1,9 @@
+method,url,data
+POST,/api/data/v9.2/accounts,"{""name"":""Contoso Corporation""}"
+POST,/api/data/v9.2/accounts,"{""name"":""Fabrikam Inc""}"
+POST,/api/data/v9.2/accounts,"{""name"":""Adventure Works""}"
+POST,/api/data/v9.2/accounts,"{""name"":""Tailspin Toys""}"
+POST,/api/data/v9.2/accounts,"{""name"":""Litware Inc""}"
+POST,/api/data/v9.2/contacts,"{""firstname"":""John"",""lastname"":""Smith""}"
+POST,/api/data/v9.2/contacts,"{""firstname"":""Jane"",""lastname"":""Doe""}"
+POST,/api/data/v9.2/contacts,"{""firstname"":""Robert"",""lastname"":""Wilson""}"
