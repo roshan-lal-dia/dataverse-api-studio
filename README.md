@@ -4,7 +4,7 @@
 
 A modern, user-friendly Python GUI application that enables you to perform ALL Dataverse Web API operations (CRUD, Batch, Query) regardless of datatype in a single unified interface.
 
-![Architecture](https://ppl-ai-code-interpreter-files.s3.amazonaws.com/web/direct-files/142163464b81c417622137fc590c1a4b/92fa9e77-9a2d-42dc-9177-fe8105ba661f/fb20f388.png)
+![Architecture](https://github.com/roshan-lal-dia/dataverse-api-studio/blob/6167e32a913b8697ea939aff4db110abf83bd47d/docs/dataverse_api_flowchart.png)
 
 ---
 
