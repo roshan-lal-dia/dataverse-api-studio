@@ -468,14 +468,13 @@ class ExcelMapperTab(QWidget):
             json_builder = JSONBuilder(self.field_mappings, self.choice_mappings)
             result = json_builder.build_json_for_all_rows(self.excel_rows)
             
-            # Get entity set name (plural form)
-            # Note: This uses simple pluralization. For production, fetch EntitySetName from metadata
+            # Get entity set name from metadata
             entity_name = self.entity_combo.currentText()
-            entity_set_name = f"{entity_name}s"  # Simple pluralization
+            entity_set_name = self.client.get_entity_set_name(entity_name)
             
-            # TODO: Fetch correct EntitySetName from metadata to handle irregular plurals
-            # entity_def = self.client.fetch_entity_definitions()
-            # entity_set_name = next((e['EntitySetName'] for e in entity_def['entities'] if e['LogicalName'] == entity_name), f"{entity_name}s")
+            # Fallback to simple pluralization if not found
+            if not entity_set_name:
+                entity_set_name = f"{entity_name}s"
             
             operations = []
             

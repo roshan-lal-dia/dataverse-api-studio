@@ -83,9 +83,16 @@ class FilterGroup:
 class QueryBuilder:
     """Build OData and FetchXML queries"""
     
-    def __init__(self, entity_name: str):
-        """Initialize query builder for an entity"""
+    def __init__(self, entity_name: str, entity_set_name: Optional[str] = None):
+        """
+        Initialize query builder for an entity
+        Args:
+            entity_name: Logical name of the entity (e.g., 'account')
+            entity_set_name: Collection name from metadata (e.g., 'accounts', 'opportunities')
+                           If not provided, defaults to entity_name + 's'
+        """
         self.entity_name = entity_name
+        self.entity_set_name = entity_set_name or f"{entity_name}s"
         self.select_fields: List[str] = []
         self.filter_group: Optional[FilterGroup] = None
         self.order_by: List[tuple] = []  # (field, direction)
@@ -244,20 +251,14 @@ class QueryBuilder:
     
     def get_url(self, base_url: str) -> str:
         """
-        Get full query URL
-        Note: Uses EntitySetName from metadata if available, otherwise adds 's'
+        Get full query URL using EntitySetName from metadata
         """
         query_string = self.to_odata()
         
-        # Note: This assumes entity collection name is entity_name + 's'
-        # In production, should use EntitySetName from metadata
-        # Example: entity.EntitySetName (e.g., 'opportunities' for 'opportunity')
-        entity_collection = f"{self.entity_name}s"
-        
         if query_string:
-            return f"{base_url}/api/data/v9.2/{entity_collection}?{query_string}"
+            return f"{base_url}/api/data/v9.2/{self.entity_set_name}?{query_string}"
         else:
-            return f"{base_url}/api/data/v9.2/{entity_collection}"
+            return f"{base_url}/api/data/v9.2/{self.entity_set_name}"
 
 
 # Helper functions for common query patterns

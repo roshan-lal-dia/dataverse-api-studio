@@ -229,6 +229,42 @@ class MetadataClient(DataverseClient):
         
         return []
     
+    def get_entity_set_name(self, entity_name: str, use_cache: bool = True) -> Optional[str]:
+        """
+        Get EntitySetName (collection name) for an entity
+        Args:
+            entity_name: Logical name of the entity (e.g., 'opportunity')
+            use_cache: Whether to use cached metadata
+        Returns:
+            EntitySetName (e.g., 'opportunities') or None if not found
+        """
+        result = self.fetch_entity_definitions(use_cache)
+        
+        if result.get("success"):
+            entities = result.get("entities", [])
+            for entity in entities:
+                if entity.get("LogicalName") == entity_name:
+                    return entity.get("EntitySetName")
+        
+        return None
+    
+    def get_entity_metadata_map(self, use_cache: bool = True) -> Dict[str, Dict]:
+        """
+        Get a map of entity logical names to their full metadata
+        Returns: Dict mapping LogicalName -> entity metadata dict
+        """
+        result = self.fetch_entity_definitions(use_cache)
+        
+        if result.get("success"):
+            entities = result.get("entities", [])
+            return {
+                e.get("LogicalName"): e 
+                for e in entities 
+                if e.get("LogicalName")
+            }
+        
+        return {}
+    
     def invalidate_cache(self, pattern: Optional[str] = None):
         """
         Invalidate cached metadata

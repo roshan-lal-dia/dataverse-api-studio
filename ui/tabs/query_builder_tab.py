@@ -343,7 +343,13 @@ class QueryBuilderTab(QWidget):
         if self.mode_tabs.currentIndex() == 0:
             # Simple mode
             entity = self.simple_table_input.text().strip()
-            builder = QueryBuilder(entity)
+            
+            # Get EntitySetName from metadata
+            entity_set_name = None
+            if self.client:
+                entity_set_name = self.client.get_entity_set_name(entity)
+            
+            builder = QueryBuilder(entity, entity_set_name)
             
             # Add select
             select_text = self.simple_select_input.text().strip()
@@ -370,7 +376,13 @@ class QueryBuilderTab(QWidget):
         else:
             # Advanced mode
             entity = self.advanced_entity_combo.currentText().strip()
-            builder = QueryBuilder(entity)
+            
+            # Get EntitySetName from metadata
+            entity_set_name = None
+            if self.client:
+                entity_set_name = self.client.get_entity_set_name(entity)
+            
+            builder = QueryBuilder(entity, entity_set_name)
             
             # Add selected fields
             selected_items = self.fields_list.selectedItems()

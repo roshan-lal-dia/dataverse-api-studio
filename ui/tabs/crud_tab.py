@@ -1,14 +1,16 @@
 """
-CRUD Operations Tab
+CRUD Operations Tab with integrated validation
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QComboBox, QTextEdit, QGroupBox, QMessageBox
+    QPushButton, QComboBox, QTextEdit, QGroupBox, QMessageBox, QCheckBox
 )
 from PyQt6.QtCore import pyqtSignal, QThread
 from datetime import datetime
 import json
+
+from utils.payload_validator import PayloadValidator
 
 
 class CRUDOperationThread(QThread):
@@ -98,6 +100,15 @@ class CRUDTab(QWidget):
         table_layout.addWidget(self.record_id_label)
         table_layout.addWidget(self.record_id_input)
         
+        # Validation checkbox
+        validation_layout = QHBoxLayout()
+        self.validate_checkbox = QCheckBox("✓ Validate payload before execution")
+        self.validate_checkbox.setChecked(True)
+        self.validate_checkbox.setToolTip("Check payload against metadata for required fields, types, and permissions")
+        validation_layout.addWidget(self.validate_checkbox)
+        validation_layout.addStretch()
+        table_layout.addLayout(validation_layout)
+        
         table_group.setLayout(table_layout)
         layout.addWidget(table_group)
         
@@ -186,6 +197,24 @@ class CRUDTab(QWidget):
             except json.JSONDecodeError as e:
                 QMessageBox.critical(self, "Invalid JSON", f"JSON parsing error:\n{str(e)}")
                 return
+        
+        # Validate payload if enabled
+        if self.validate_checkbox.isChecked() and operation in ["CREATE", "UPDATE"] and data:
+            validation_result = self._validate_payload(table_name, data, operation)
+            if not validation_result["valid"]:
+                # Show validation errors
+                error_msg = "Validation failed:\n\n" + "\n".join(f"• {err}" for err in validation_result["errors"])
+                
+                reply = QMessageBox.warning(
+                    self,
+                    "Validation Errors",
+                    error_msg + "\n\nDo you want to proceed anyway?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.No:
+                    return
         
         # Disable button
         self.execute_button.setEnabled(False)
@@ -297,3 +326,38 @@ class CRUDTab(QWidget):
         """Load data from external source (e.g., Excel mapper)"""
         self.op_combo.setCurrentText("CREATE")
         self.data_editor.setPlainText(json.dumps(json_data, indent=2))
+    
+    def _validate_payload(self, table_name: str, payload: dict, operation: str) -> dict:
+        """
+        Validate payload against metadata
+        Returns: {"valid": bool, "errors": List[str]}
+        """
+        if not self.client:
+            return {"valid": True, "errors": []}
+        
+        try:
+            # Fetch entity metadata
+            result = self.client.fetch_entity_attributes(table_name)
+            
+            if not result.get("success"):
+                # Cannot validate without metadata - proceed with warning
+                return {
+                    "valid": True,
+                    "errors": ["Warning: Could not fetch metadata for validation"]
+                }
+            
+            # Create validator
+            validator = PayloadValidator(result)
+            
+            # Validate
+            is_valid, errors = validator.validate_payload(payload, operation)
+            
+            return {"valid": is_valid, "errors": errors}
+        
+        except Exception as e:
+            # If validation fails, return warning but allow to proceed
+            return {
+                "valid": True,
+                "errors": [f"Warning: Validation error: {str(e)}"]
+            }
+

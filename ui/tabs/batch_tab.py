@@ -1,14 +1,18 @@
 """
-Batch Operations Tab
+Batch Operations Tab with validation support
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTextEdit, QGroupBox, QMessageBox, QFileDialog
+    QTextEdit, QGroupBox, QMessageBox, QFileDialog, QCheckBox
 )
 from PyQt6.QtCore import pyqtSignal, QThread
 from datetime import datetime
+from typing import Optional
 import json
+import re
+
+from utils.payload_validator import PayloadValidator
 
 
 class BatchOperationThread(QThread):
@@ -66,6 +70,15 @@ class BatchTab(QWidget):
         
         editor_group.setLayout(editor_layout)
         layout.addWidget(editor_group)
+        
+        # Validation checkbox
+        validation_layout = QHBoxLayout()
+        self.validate_checkbox = QCheckBox("✓ Validate payloads before execution")
+        self.validate_checkbox.setChecked(True)
+        self.validate_checkbox.setToolTip("Check each operation payload against metadata")
+        validation_layout.addWidget(self.validate_checkbox)
+        validation_layout.addStretch()
+        layout.addLayout(validation_layout)
         
         # Buttons
         button_layout = QHBoxLayout()
@@ -130,6 +143,29 @@ class BatchTab(QWidget):
             QMessageBox.critical(self, "Invalid JSON", f"JSON parsing error:\n{str(e)}")
             return
         
+        # Validate operations if enabled
+        if self.validate_checkbox.isChecked():
+            validation_result = self._validate_batch_operations(operations)
+            
+            if validation_result["errors"]:
+                error_msg = f"Found {len(validation_result['errors'])} validation error(s):\n\n"
+                error_msg += "\n".join(f"• Operation {i+1}: {err}" 
+                                     for i, err in validation_result['errors'][:10])  # Show first 10
+                
+                if len(validation_result['errors']) > 10:
+                    error_msg += f"\n... and {len(validation_result['errors']) - 10} more errors"
+                
+                reply = QMessageBox.warning(
+                    self,
+                    "Validation Errors",
+                    error_msg + "\n\nDo you want to proceed anyway?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.No:
+                    return
+        
         # Disable button
         self.execute_button.setEnabled(False)
         self.execute_button.setText("⏳ Executing Batch...")
@@ -173,3 +209,80 @@ class BatchTab(QWidget):
     def load_operations(self, operations: list):
         """Load operations from external source"""
         self.batch_editor.setPlainText(json.dumps(operations, indent=2))
+    
+    def _validate_batch_operations(self, operations: list) -> dict:
+        """
+        Validate batch operations against metadata
+        Returns: {"errors": List[Tuple[int, str]]}  # (operation_index, error_message)
+        """
+        errors = []
+        
+        if not self.client:
+            return {"errors": []}
+        
+        try:
+            for idx, operation in enumerate(operations):
+                method = operation.get("method", "").upper()
+                
+                # Only validate POST (CREATE) and PATCH (UPDATE)
+                if method not in ["POST", "PATCH"]:
+                    continue
+                
+                # Extract entity name from URL
+                url = operation.get("url", "")
+                entity_name = self._extract_entity_from_url(url)
+                
+                if not entity_name:
+                    continue
+                
+                # Get payload
+                data = operation.get("data", {})
+                
+                if not data:
+                    continue
+                
+                # Fetch metadata
+                result = self.client.fetch_entity_attributes(entity_name)
+                
+                if not result.get("success"):
+                    continue
+                
+                # Validate
+                validator = PayloadValidator(result)
+                op_type = "CREATE" if method == "POST" else "UPDATE"
+                is_valid, validation_errors = validator.validate_payload(data, op_type)
+                
+                if not is_valid:
+                    for error in validation_errors:
+                        errors.append((idx, error))
+        
+        except Exception as e:
+            # Don't fail the whole batch validation on error
+            pass
+        
+        return {"errors": errors}
+    
+    def _extract_entity_from_url(self, url: str) -> Optional[str]:
+        """
+        Extract entity name from batch operation URL
+        e.g., "/api/data/v9.2/accounts" -> "account"
+        """
+        try:
+            # Match pattern like /api/data/v9.2/entityname or /api/data/v9.2/entityname(id)
+            match = re.search(r'/api/data/v\d+\.\d+/([a-z_]+)', url, re.IGNORECASE)
+            if match:
+                entity_set_name = match.group(1)
+                
+                # Try to find logical name from entity set name
+                # This is a simple reverse lookup - may not work for all irregular plurals
+                if entity_set_name.endswith('s'):
+                    return entity_set_name[:-1]  # Remove 's'
+                elif entity_set_name.endswith('ies'):
+                    return entity_set_name[:-3] + 'y'  # opportunities -> opportunity
+                else:
+                    return entity_set_name
+        except:
+            pass
+        
+        return None
+
