@@ -17,10 +17,11 @@ from utils.json_builder import JSONBuilder
 
 
 class MetadataFetchThread(QThread):
-    """Background thread for fetching metadata"""
+    """Background thread for fetching metadata with progress"""
     
     success = pyqtSignal(dict)
     error = pyqtSignal(str)
+    progress = pyqtSignal(str)  # status_message
     
     def __init__(self, client, entity_name):
         super().__init__()
@@ -30,9 +31,12 @@ class MetadataFetchThread(QThread):
     def run(self):
         """Fetch entity attributes"""
         try:
+            self.progress.emit(f"Fetching metadata for {self.entity_name}...")
+            
             result = self.client.fetch_entity_attributes(self.entity_name)
             
             if result.get("success"):
+                self.progress.emit("Metadata fetched successfully")
                 self.success.emit(result)
             else:
                 self.error.emit(result.get("error", "Failed to fetch metadata"))

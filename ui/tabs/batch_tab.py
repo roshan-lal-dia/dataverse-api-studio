@@ -1,10 +1,10 @@
 """
-Batch Operations Tab with validation support
+Batch Operations Tab with validation support and progress indicators
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTextEdit, QGroupBox, QMessageBox, QFileDialog, QCheckBox
+    QTextEdit, QGroupBox, QMessageBox, QFileDialog, QCheckBox, QProgressBar, QLabel
 )
 from PyQt6.QtCore import pyqtSignal, QThread
 from datetime import datetime
@@ -16,10 +16,11 @@ from utils.payload_validator import PayloadValidator
 
 
 class BatchOperationThread(QThread):
-    """Background thread for batch operations"""
+    """Background thread for batch operations with progress"""
     
     success = pyqtSignal(dict)
     error = pyqtSignal(str)
+    progress = pyqtSignal(int, str)  # (percentage, status_message)
     
     def __init__(self, client, operations):
         super().__init__()
@@ -29,9 +30,16 @@ class BatchOperationThread(QThread):
     def run(self):
         """Execute batch operation"""
         try:
+            self.progress.emit(0, "Starting batch operation...")
+            
+            self.progress.emit(30, f"Sending {len(self.operations)} operations...")
+            
             result = self.client.batch_operation(self.operations)
             
+            self.progress.emit(90, "Processing response...")
+            
             if result.get("success"):
+                self.progress.emit(100, "Completed successfully")
                 self.success.emit(result)
             else:
                 self.error.emit(result.get("error", "Unknown error"))
@@ -94,6 +102,21 @@ class BatchTab(QWidget):
         button_layout.addWidget(self.execute_button, stretch=1)
         
         layout.addLayout(button_layout)
+        
+        # Progress indicator
+        progress_group = QGroupBox("Operation Progress")
+        progress_layout = QVBoxLayout()
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        progress_layout.addWidget(self.progress_bar)
+        
+        self.progress_label = QLabel("")
+        self.progress_label.setVisible(False)
+        progress_layout.addWidget(self.progress_label)
+        
+        progress_group.setLayout(progress_layout)
+        layout.addWidget(progress_group)
     
     def set_client(self, client):
         """Set the Dataverse client"""
@@ -166,20 +189,31 @@ class BatchTab(QWidget):
                 if reply == QMessageBox.StandardButton.No:
                     return
         
-        # Disable button
+        # Disable button and show progress
         self.execute_button.setEnabled(False)
         self.execute_button.setText("⏳ Executing Batch...")
+        self.progress_bar.setVisible(True)
+        self.progress_label.setVisible(True)
+        self.progress_bar.setValue(0)
         
         # Start operation
         self.operation_thread = BatchOperationThread(self.client, operations)
         self.operation_thread.success.connect(self._on_batch_success)
         self.operation_thread.error.connect(self._on_batch_error)
+        self.operation_thread.progress.connect(self._on_batch_progress)
         self.operation_thread.start()
+    
+    def _on_batch_progress(self, percentage: int, message: str):
+        """Update progress bar"""
+        self.progress_bar.setValue(percentage)
+        self.progress_label.setText(message)
     
     def _on_batch_success(self, result: dict):
         """Handle successful batch operation"""
         self.execute_button.setEnabled(True)
         self.execute_button.setText("⚡ Execute Batch")
+        self.progress_bar.setVisible(False)
+        self.progress_label.setVisible(False)
         
         operation_data = {
             "type": "Batch Operation",
@@ -194,6 +228,8 @@ class BatchTab(QWidget):
         """Handle batch operation error"""
         self.execute_button.setEnabled(True)
         self.execute_button.setText("⚡ Execute Batch")
+        self.progress_bar.setVisible(False)
+        self.progress_label.setVisible(False)
         
         QMessageBox.critical(self, "Batch Failed", f"Error:\n{error_msg}")
         
