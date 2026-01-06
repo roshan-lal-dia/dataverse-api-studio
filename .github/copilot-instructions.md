@@ -76,3 +76,7 @@ python dataverse_api_gui.py
 - `.env`: Secrets file (user-created, git-ignored)
 - `docs/`: Setup guides and examples
 - `README.md`: Features and quick start
+
+
+## Notes:
+- Whenver implementing code changes update relevant readme and other guides as well, including the agent instructions file.
