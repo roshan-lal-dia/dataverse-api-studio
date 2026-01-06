@@ -64,13 +64,29 @@ A professional-grade desktop application with **Excel/CSV mapper**, **metadata d
 - **Easy development** - Simple Python interface
 - [Full Guide →](docs/TIER2_FEATURES.md#feature-3-plugin-system)
 
-#### ✅ **Payload Validation**
+#### ✅ **Payload Validation** (Integrated)
 - **Preflight validation** - Check payloads before API calls
+- **✅ CRUD tab integration** - Validation checkbox (on by default)
+- **✅ Batch tab integration** - Validates all operations
 - **Required field detection** - Ensures all required fields present
 - **Type validation** - Validates data types against metadata
 - **Permission checking** - Verifies create/update permissions
 - **Helpful error messages** - Display names + field names
+- **User override** - Can proceed despite warnings
 - [Full Guide →](docs/TIER2_FEATURES.md#feature-4-payload-validation)
+
+#### ⚡ **Progress Indicators** (New)
+- **Batch operations** - Progress bar with percentage and status
+- **Metadata fetch** - Status messages during long operations
+- **User feedback** - Always know what's happening
+- **Professional polish** - Modern application standards
+
+#### 🔧 **EntitySetName Support** (Metadata-based)
+- **Proper collection names** - Uses metadata instead of simple pluralization
+- **Handles irregular plurals** - opportunity → opportunities (not opportunitys)
+- **QueryBuilder integration** - All queries use correct names
+- **Excel Mapper integration** - Batch operations use EntitySetName
+- **Cached for performance** - Fast lookup from metadata
 
 ### 🎨 Modern PyQt6 UI
 - **Fusion theme** - Professional, native-looking interface
