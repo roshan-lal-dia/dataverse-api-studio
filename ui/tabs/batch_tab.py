@@ -4,7 +4,7 @@ Batch Operations Tab with validation support and progress indicators
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTextEdit, QGroupBox, QMessageBox, QFileDialog, QCheckBox, QProgressBar, QLabel
+    QTextEdit, QGroupBox, QMessageBox, QFileDialog, QCheckBox, QProgressBar, QLabel, QComboBox, QLineEdit
 )
 from PyQt6.QtCore import pyqtSignal, QThread
 from datetime import datetime

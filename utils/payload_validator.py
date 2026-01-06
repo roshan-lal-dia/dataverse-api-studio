@@ -1,10 +1,13 @@
 """
 Payload Validator - Preflight validation layer
 Validates payloads against metadata before sending to API
+Includes smart formatters for lookups, choices, and multi-value fields
 """
 
 from typing import Dict, List, Tuple, Optional, Any
 from enum import Enum
+import re
+from datetime import datetime
 
 
 class RequiredLevel(str, Enum):
@@ -18,13 +21,38 @@ class RequiredLevel(str, Enum):
 class PayloadValidator:
     """Validate payloads against Dataverse metadata"""
     
-    def __init__(self, metadata: Dict):
+    # Common plural mappings for entity names
+    PLURAL_MAPPINGS = {
+        'account': 'accounts',
+        'contact': 'contacts',
+        'lead': 'leads',
+        'opportunity': 'opportunities',
+        'case': 'cases',
+        'task': 'tasks',
+        'appointment': 'appointments',
+        'note': 'notes',
+        'phonecall': 'phonecalls',
+        'email': 'emails',
+        'quote': 'quotes',
+        'order': 'orders',
+        'invoice': 'invoices',
+        'product': 'products',
+        'campaign': 'campaigns',
+        'team': 'teams',
+        'user': 'users',
+        'role': 'roles',
+        'businessunit': 'businessunits',
+    }
+    
+    def __init__(self, metadata: Dict, entity_plural_name: Optional[str] = None):
         """
         Initialize validator with entity metadata
         Args:
             metadata: Entity attributes metadata from MetadataClient
+            entity_plural_name: Optional plural name for the entity (e.g., 'accounts')
         """
         self.metadata = metadata
+        self.entity_plural_name = entity_plural_name
         self.attributes = {
             attr.get("LogicalName"): attr 
             for attr in metadata.get("attributes", [])
@@ -55,6 +83,60 @@ class PayloadValidator:
         errors.extend(invalid_errors)
         
         return len(errors) == 0, errors
+    
+    def autocorrect_payload(self, payload: Dict) -> Tuple[Dict, List[str]]:
+        """
+        Attempt to auto-correct common payload errors
+        Returns corrected payload and list of corrections made
+        """
+        corrected = dict(payload)
+        corrections = []
+        
+        for field_name, value in list(corrected.items()):
+            if field_name not in self.attributes or "@odata.bind" in field_name:
+                continue
+            
+            attr_meta = self.attributes[field_name]
+            attr_type = attr_meta.get("AttributeType", "")
+            
+            # Try to format based on type
+            formatted_value, correction = self._autoformat_value(
+                field_name, value, attr_type, attr_meta
+            )
+            
+            if formatted_value is not None:
+                corrected[field_name] = formatted_value
+                if correction:
+                    corrections.append(correction)
+        
+        return corrected, corrections
+    
+    def format_lookup_field(self, field_name: str, guid: str, target_entity: str) -> Dict[str, str]:
+        """
+        Format a lookup field with @odata.bind syntax
+        Args:
+            field_name: The logical name of the lookup field
+            guid: The GUID of the target record
+            target_entity: The logical name of the target entity (singular)
+        Returns:
+            Dict with formatted @odata.bind property
+        """
+        # Get plural name from metadata or mapping
+        plural_name = self._get_plural_name(target_entity)
+        
+        return {
+            f"{field_name}@odata.bind": f"/{plural_name}({guid})"
+        }
+    
+    def get_plural_name(self, entity_singular: str) -> str:
+        """
+        Get plural name for an entity
+        Args:
+            entity_singular: Singular entity name (e.g., 'account')
+        Returns:
+            Plural entity name (e.g., 'accounts')
+        """
+        return self._get_plural_name(entity_singular)
     
     def _check_required_fields(self, payload: Dict) -> List[str]:
         """Check if required fields are present"""
@@ -149,7 +231,6 @@ class PayloadValidator:
             return f"Field {field_name} is a lookup and should use @odata.bind suffix"
         
         return None
-    
     def _check_invalid_fields(self, payload: Dict, operation: str) -> List[str]:
         """Check for fields that cannot be created/updated"""
         errors = []
@@ -240,3 +321,147 @@ class PayloadValidator:
                 })
         
         return updateable
+    
+    def _autoformat_value(self, field_name: str, value: Any, attr_type: str, attr_meta: Dict) -> Tuple[Optional[Any], Optional[str]]:
+        """
+        Attempt to auto-format a value based on field type
+        Returns (formatted_value, correction_message)
+        """
+        if value is None or value == "":
+            return None, None
+        
+        # Boolean formatting
+        if attr_type == "Boolean":
+            if isinstance(value, bool):
+                return value, None
+            if isinstance(value, str):
+                if value.lower() in ["true", "yes", "1", "on"]:
+                    return True, f"{field_name}: converted '{value}' to True"
+                elif value.lower() in ["false", "no", "0", "off"]:
+                    return False, f"{field_name}: converted '{value}' to False"
+            return None, None
+        
+        # Integer/Money formatting
+        if attr_type in ["Integer", "BigInt", "Money", "Decimal", "Double"]:
+            if isinstance(value, (int, float)):
+                return value, None
+            if isinstance(value, str):
+                try:
+                    if "." in value and attr_type in ["Money", "Decimal", "Double"]:
+                        formatted = float(value)
+                        return formatted, f"{field_name}: converted '{value}' to {formatted}"
+                    else:
+                        formatted = int(float(value))
+                        return formatted, f"{field_name}: converted '{value}' to {formatted}"
+                except (ValueError, TypeError):
+                    return None, None
+        
+        # String trimming
+        if attr_type in ["String", "Memo"]:
+            if isinstance(value, str):
+                trimmed = value.strip()
+                if trimmed != value:
+                    return trimmed, f"{field_name}: trimmed whitespace"
+                return value, None
+        
+        # DateTime formatting
+        if attr_type == "DateTime":
+            if isinstance(value, str):
+                # Try to parse and reformat
+                try:
+                    parsed = self._parse_datetime(value)
+                    if parsed:
+                        iso_str = parsed.isoformat() + "Z"
+                        if iso_str != value:
+                            return iso_str, f"{field_name}: formatted to ISO 8601"
+                        return value, None
+                except:
+                    return None, None
+        
+        return None, None
+    
+    def _parse_datetime(self, value: str) -> Optional[datetime]:
+        """Parse various datetime formats"""
+        formats = [
+            "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%SZ",
+            "%m/%d/%Y",
+            "%d/%m/%Y",
+            "%Y-%m-%d %H:%M:%S",
+        ]
+        
+        for fmt in formats:
+            try:
+                return datetime.strptime(value, fmt)
+            except ValueError:
+                continue
+        
+        return None
+    
+    def _get_plural_name(self, entity_singular: str) -> str:
+        """
+        Get plural name for an entity
+        Uses metadata if available, then falls back to mapping
+        """
+        if self.entity_plural_name:
+            return self.entity_plural_name
+        
+        entity_lower = entity_singular.lower().strip()
+        
+        # Check mapping table first
+        if entity_lower in self.PLURAL_MAPPINGS:
+            return self.PLURAL_MAPPINGS[entity_lower]
+        
+        # Simple fallback: add 's'
+        return f"{entity_lower}s"
+    
+    def suggest_lookup_format(self, field_name: str, raw_guid: str) -> str:
+        """
+        Suggest proper lookup format for a GUID
+        Returns the formatted string with @odata.bind
+        """
+        # Clean up GUID (remove hyphens if present, standardize)
+        clean_guid = raw_guid.strip().lower()
+        clean_guid = clean_guid.replace("-", "")
+        
+        # Reformat with hyphens in proper positions: 8-4-4-4-12
+        if len(clean_guid) == 32:
+            guid_formatted = f"{clean_guid[0:8]}-{clean_guid[8:12]}-{clean_guid[12:16]}-{clean_guid[16:20]}-{clean_guid[20:32]}"
+        else:
+            guid_formatted = clean_guid
+        
+        # Try to infer target entity from field name
+        # Common pattern: field_name = "ownerid" -> target = "owner"
+        target_entity = self._infer_target_entity(field_name)
+        if not target_entity:
+            target_entity = "owner"  # Default fallback
+        
+        plural_name = self._get_plural_name(target_entity)
+        return f"{field_name}@odata.bind:/{plural_name}({guid_formatted})"
+    
+    def _infer_target_entity(self, field_name: str) -> Optional[str]:
+        """
+        Infer target entity from lookup field name
+        e.g., 'ownerid' -> 'owner', 'parentaccountid' -> 'account'
+        """
+        field_lower = field_name.lower()
+        
+        # Remove 'id' suffix
+        if field_lower.endswith("id"):
+            base = field_lower[:-2]
+        else:
+            base = field_lower
+        
+        # Remove common prefixes
+        base = base.replace("_", "")
+        
+        # Check if matches known entity
+        common_targets = {
+            "owner": "user",
+            "parentaccount": "account",
+            "createdon": None,
+            "modifiedon": None,
+        }
+        
+        return common_targets.get(base)

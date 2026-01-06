@@ -4,7 +4,8 @@ CRUD Operations Tab with integrated validation
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QComboBox, QTextEdit, QGroupBox, QMessageBox, QCheckBox
+    QPushButton, QComboBox, QTextEdit, QGroupBox, QMessageBox, QCheckBox,
+    QInputDialog
 )
 from PyQt6.QtCore import pyqtSignal, QThread
 from datetime import datetime
@@ -202,19 +203,39 @@ class CRUDTab(QWidget):
         if self.validate_checkbox.isChecked() and operation in ["CREATE", "UPDATE"] and data:
             validation_result = self._validate_payload(table_name, data, operation)
             if not validation_result["valid"]:
-                # Show validation errors
+                # Show validation errors with autocorrect option
                 error_msg = "Validation failed:\n\n" + "\n".join(f"• {err}" for err in validation_result["errors"])
                 
-                reply = QMessageBox.warning(
-                    self,
-                    "Validation Errors",
-                    error_msg + "\n\nDo you want to proceed anyway?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No
-                )
-                
-                if reply == QMessageBox.StandardButton.No:
-                    return
+                # Check if autocorrect available
+                if validation_result.get("auto_correction_available"):
+                    corrections_msg = "\n\nAuto-corrections available:\n" + "\n".join(f"✓ {corr}" for corr in validation_result["corrections"])
+                    error_msg += corrections_msg
+                    
+                    reply = QMessageBox.warning(
+                        self,
+                        "Validation Errors - Auto-correction Available",
+                        error_msg + "\n\nApply auto-corrections?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+                        QMessageBox.StandardButton.No
+                    )
+                    
+                    if reply == QMessageBox.StandardButton.Yes:
+                        # Use corrected payload
+                        data = validation_result["corrected"]
+                        self.data_editor.setPlainText(json.dumps(data, indent=2))
+                    elif reply == QMessageBox.StandardButton.Cancel:
+                        return
+                else:
+                    reply = QMessageBox.warning(
+                        self,
+                        "Validation Errors",
+                        error_msg + "\n\nDo you want to proceed anyway?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No
+                    )
+                    
+                    if reply == QMessageBox.StandardButton.No:
+                        return
         
         # Disable button
         self.execute_button.setEnabled(False)
@@ -329,11 +350,11 @@ class CRUDTab(QWidget):
     
     def _validate_payload(self, table_name: str, payload: dict, operation: str) -> dict:
         """
-        Validate payload against metadata
-        Returns: {"valid": bool, "errors": List[str]}
+        Validate payload against metadata with autocorrect suggestions
+        Returns: {"valid": bool, "errors": List[str], "corrected": dict, "corrections": List[str]}
         """
         if not self.client:
-            return {"valid": True, "errors": []}
+            return {"valid": True, "errors": [], "corrected": payload, "corrections": []}
         
         try:
             # Fetch entity metadata
@@ -343,21 +364,47 @@ class CRUDTab(QWidget):
                 # Cannot validate without metadata - proceed with warning
                 return {
                     "valid": True,
-                    "errors": ["Warning: Could not fetch metadata for validation"]
+                    "errors": ["Warning: Could not fetch metadata for validation"],
+                    "corrected": payload,
+                    "corrections": []
                 }
             
             # Create validator
-            validator = PayloadValidator(result)
+            validator = PayloadValidator(result, entity_plural_name=None)
             
-            # Validate
+            # Try to autocorrect payload
+            corrected_payload, corrections = validator.autocorrect_payload(payload)
+            
+            # Validate original
             is_valid, errors = validator.validate_payload(payload, operation)
             
-            return {"valid": is_valid, "errors": errors}
+            # If not valid, try validating corrected version
+            if not is_valid:
+                corrected_valid, corrected_errors = validator.validate_payload(corrected_payload, operation)
+                
+                # If corrections help, suggest them
+                if corrected_valid and corrections:
+                    return {
+                        "valid": False,
+                        "errors": errors,
+                        "corrected": corrected_payload,
+                        "corrections": corrections,
+                        "auto_correction_available": True
+                    }
+            
+            return {
+                "valid": is_valid,
+                "errors": errors,
+                "corrected": corrected_payload if corrections else payload,
+                "corrections": corrections
+            }
         
         except Exception as e:
             # If validation fails, return warning but allow to proceed
             return {
                 "valid": True,
-                "errors": [f"Warning: Validation error: {str(e)}"]
+                "errors": [f"Warning: Validation error: {str(e)}"],
+                "corrected": payload,
+                "corrections": []
             }
 

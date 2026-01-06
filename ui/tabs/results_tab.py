@@ -5,7 +5,8 @@ Results Tab - Enhanced with relationship navigation and Power BI export
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QTextEdit, QTableWidget, QTableWidgetItem, QGroupBox,
-    QTabWidget, QFileDialog, QMessageBox, QLabel, QMenu
+    QTabWidget, QFileDialog, QMessageBox, QLabel, QMenu,
+    QApplication
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction

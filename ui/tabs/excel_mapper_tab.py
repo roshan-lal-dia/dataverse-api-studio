@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFileDialog, QGroupBox, QListWidget, QListWidgetItem,
     QComboBox, QTextEdit, QSpinBox, QMessageBox, QSplitter,
-    QTableWidget, QTableWidgetItem
+    QTableWidget, QTableWidgetItem, QLineEdit, QScrollArea
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
 import json
@@ -66,8 +66,23 @@ class ExcelMapperTab(QWidget):
     
     def _create_ui(self):
         """Create UI components"""
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Scrollable container to avoid cramped content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setStyleSheet(
+            "QScrollArea { background: #f5f5f5; border: none; }"
+            "QScrollArea > QWidget > QWidget { background: #f5f5f5; }"
+        )
+
+        content = QWidget()
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(10, 10, 10, 10)
+        content.setMinimumWidth(1100)
         
         # File selection
         file_group = QGroupBox("1️⃣ Select Excel/CSV File")
@@ -124,8 +139,9 @@ class ExcelMapperTab(QWidget):
         
         # Left panel - Excel columns
         excel_panel = QWidget()
+        excel_panel.setMinimumWidth(420)
         excel_panel_layout = QVBoxLayout(excel_panel)
-        excel_panel_layout.setContentsMargins(0, 0, 0, 0)
+        excel_panel_layout.setContentsMargins(5, 5, 5, 5)
         
         excel_label = QLabel("Excel Columns:")
         excel_panel_layout.addWidget(excel_label)
@@ -138,13 +154,15 @@ class ExcelMapperTab(QWidget):
         excel_panel_layout.addWidget(preview_label)
         
         self.preview_table = QTableWidget()
-        self.preview_table.setMaximumHeight(150)
+        self.preview_table.setMinimumHeight(120)
+        self.preview_table.setMaximumHeight(200)
         excel_panel_layout.addWidget(self.preview_table)
         
         # Right panel - Dataverse fields
         dv_panel = QWidget()
+        dv_panel.setMinimumWidth(420)
         dv_panel_layout = QVBoxLayout(dv_panel)
-        dv_panel_layout.setContentsMargins(0, 0, 0, 0)
+        dv_panel_layout.setContentsMargins(5, 5, 5, 5)
         
         dv_label = QLabel("Dataverse Fields:")
         dv_panel_layout.addWidget(dv_label)
@@ -157,9 +175,11 @@ class ExcelMapperTab(QWidget):
         dv_panel_layout.addWidget(assign_label)
         
         assign_layout = QHBoxLayout()
+        assign_layout.setSpacing(8)
         
         self.excel_col_combo = QComboBox()
         self.excel_col_combo.setPlaceholderText("Select Excel column")
+        self.excel_col_combo.setMinimumWidth(180)
         assign_layout.addWidget(self.excel_col_combo)
         
         arrow_label = QLabel("→")
@@ -167,9 +187,11 @@ class ExcelMapperTab(QWidget):
         
         self.dv_field_combo = QComboBox()
         self.dv_field_combo.setPlaceholderText("Select Dataverse field")
+        self.dv_field_combo.setMinimumWidth(220)
         assign_layout.addWidget(self.dv_field_combo)
         
         self.assign_button = QPushButton("✅ Assign")
+        self.assign_button.setMinimumWidth(90)
         self.assign_button.clicked.connect(self._assign_mapping)
         assign_layout.addWidget(self.assign_button)
         
@@ -186,14 +208,50 @@ class ExcelMapperTab(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(excel_panel)
         splitter.addWidget(dv_panel)
-        splitter.setSizes([400, 400])
+        splitter.setSizes([500, 550])
+        splitter.setChildrenCollapsible(False)
         
         mapping_layout.addWidget(splitter)
         mapping_group.setLayout(mapping_layout)
         layout.addWidget(mapping_group, stretch=1)
+
+        # Mapping options (key attribute, blank handling)
+        options_group = QGroupBox("4️⃣ Mapping Options")
+        options_layout = QHBoxLayout()
+
+        # Key attribute selection
+        key_layout = QVBoxLayout()
+        key_label = QLabel("Key Attribute (optional):")
+        self.key_attribute_combo = QComboBox()
+        self.key_attribute_combo.setEditable(False)
+        self.key_attribute_combo.addItem("None", None)
+        key_layout.addWidget(key_label)
+        key_layout.addWidget(self.key_attribute_combo)
+
+        # Blank handling policy
+        blank_layout = QVBoxLayout()
+        blank_label = QLabel("Blank Value Handling:")
+        self.blank_policy_combo = QComboBox()
+        self.blank_policy_combo.addItem("Skip field", "skip_field")
+        self.blank_policy_combo.addItem("Set null", "set_null")
+        self.blank_policy_combo.addItem("Use default value", "default_value")
+        self.blank_policy_combo.addItem("Drop row (mark invalid)", "drop_row")
+        self.blank_policy_combo.currentIndexChanged.connect(self._on_blank_policy_changed)
+        self.blank_default_input = QLineEdit()
+        self.blank_default_input.setPlaceholderText("Default value when blank")
+        self.blank_default_input.setEnabled(False)
+        blank_layout.addWidget(blank_label)
+        blank_layout.addWidget(self.blank_policy_combo)
+        blank_layout.addWidget(self.blank_default_input)
+
+        options_layout.addLayout(key_layout)
+        options_layout.addLayout(blank_layout)
+        options_layout.addStretch()
+        options_group.setLayout(options_layout)
+        layout.addWidget(options_group)
         
         # JSON preview
-        preview_group = QGroupBox("4️⃣ JSON Preview")
+        preview_group = QGroupBox("5️⃣ JSON Preview")
         preview_layout = QVBoxLayout()
         
         self.json_preview = QTextEdit()
@@ -223,6 +281,10 @@ class ExcelMapperTab(QWidget):
         action_layout.addStretch()
         
         layout.addLayout(action_layout)
+
+        # Finalize scroll area
+        scroll.setWidget(content)
+        outer_layout.addWidget(scroll)
     
     def set_client(self, client):
         """Set the metadata client"""
@@ -328,16 +390,25 @@ class ExcelMapperTab(QWidget):
         # Populate Dataverse fields list
         self.dv_fields_list.clear()
         self.dv_field_combo.clear()
+        self.key_attribute_combo.clear()
+        self.key_attribute_combo.addItem("None", None)
         
         for attr in self.entity_attributes:
+            if not attr:
+                continue
             logical_name = attr.get("LogicalName", "")
             attr_type = attr.get("AttributeType", "")
-            display_name = attr.get("DisplayName", {}).get("UserLocalizedLabel", {}).get("Label", logical_name)
+            display_dict = attr.get("DisplayName") or {}
+            user_label = display_dict.get("UserLocalizedLabel") or {}
+            display_name = user_label.get("Label") or logical_name
             
             display_text = f"{logical_name} ({attr_type})"
+            if display_name and display_name != logical_name:
+                display_text = f"{display_name} [{logical_name}] ({attr_type})"
             
             self.dv_fields_list.addItem(display_text)
             self.dv_field_combo.addItem(display_text, logical_name)
+            self.key_attribute_combo.addItem(display_text, logical_name)
         
         QMessageBox.information(
             self,
@@ -351,6 +422,26 @@ class ExcelMapperTab(QWidget):
         self.fetch_fields_button.setText("🔍 Fetch Fields")
         
         QMessageBox.critical(self, "Metadata Error", f"Failed to fetch fields:\n{error_msg}")
+
+    def _on_blank_policy_changed(self):
+        """Enable/disable default value input based on policy"""
+        policy = self.blank_policy_combo.currentData()
+        self.blank_default_input.setEnabled(policy == "default_value")
+
+    def _get_json_builder(self) -> JSONBuilder:
+        """Create JSONBuilder with current options"""
+        policy = self.blank_policy_combo.currentData()
+        default_val = self.blank_default_input.text().strip()
+        if policy != "default_value" or default_val == "":
+            default_val = None
+        key_attr = self.key_attribute_combo.currentData()
+        return JSONBuilder(
+            self.field_mappings,
+            self.choice_mappings,
+            blank_handling=policy,
+            default_blank_value=default_val,
+            key_attribute=key_attr,
+        )
     
     def _assign_mapping(self):
         """Assign Excel column to Dataverse field"""
@@ -402,7 +493,7 @@ class ExcelMapperTab(QWidget):
         
         # Build JSON for first row
         try:
-            json_builder = JSONBuilder(self.field_mappings, self.choice_mappings)
+            json_builder = self._get_json_builder()
             result = json_builder.build_json_for_row(self.excel_rows[0])
             
             if result["success"]:
@@ -421,7 +512,7 @@ class ExcelMapperTab(QWidget):
             return
         
         try:
-            json_builder = JSONBuilder(self.field_mappings, self.choice_mappings)
+            json_builder = self._get_json_builder()
             result = json_builder.build_json_for_all_rows(self.excel_rows)
             
             summary = f"""
@@ -450,7 +541,7 @@ class ExcelMapperTab(QWidget):
             return
         
         try:
-            json_builder = JSONBuilder(self.field_mappings, self.choice_mappings)
+            json_builder = self._get_json_builder()
             result = json_builder.build_json_for_row(self.excel_rows[0])
             
             if result["success"]:
@@ -469,7 +560,7 @@ class ExcelMapperTab(QWidget):
             return
         
         try:
-            json_builder = JSONBuilder(self.field_mappings, self.choice_mappings)
+            json_builder = self._get_json_builder()
             result = json_builder.build_json_for_all_rows(self.excel_rows)
             
             # Get entity set name from metadata

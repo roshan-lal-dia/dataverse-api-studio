@@ -5,7 +5,7 @@ Analyzes data quality across multiple entities and generates comprehensive repor
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit,
-    QComboBox, QLabel, QGroupBox, QProgressBar, QMessageBox
+    QComboBox, QLabel, QGroupBox, QProgressBar, QMessageBox, QLineEdit
 )
 from PyQt6.QtCore import QThread, pyqtSignal
 from datetime import datetime
@@ -137,8 +137,19 @@ class DataQualityReporterWidget(QWidget):
             "account, contact",
             "Custom selection..."
         ])
+        self.entity_combo.currentTextChanged.connect(self._on_selection_changed)
         entity_layout.addWidget(QLabel("Quick selection:"))
         entity_layout.addWidget(self.entity_combo)
+        
+        # Custom entity input (initially hidden)
+        self.custom_label = QLabel("Custom entities (comma-separated):")
+        self.custom_label.setVisible(False)
+        entity_layout.addWidget(self.custom_label)
+        
+        self.custom_entities = QLineEdit()
+        self.custom_entities.setPlaceholderText("e.g., account, contact, lead, opportunity")
+        self.custom_entities.setVisible(False)
+        entity_layout.addWidget(self.custom_entities)
         
         entity_group.setLayout(entity_layout)
         layout.addWidget(entity_group)
@@ -191,6 +202,15 @@ class DataQualityReporterWidget(QWidget):
         self.client = client
         self.analyze_button.setEnabled(True)
     
+    def _on_selection_changed(self, text):
+        """Handle entity selection change"""
+        is_custom = text == "Custom selection..."
+        self.custom_label.setVisible(is_custom)
+        self.custom_entities.setVisible(is_custom)
+        
+        if is_custom:
+            self.custom_entities.setFocus()
+    
     def _run_analysis(self):
         """Run quality analysis"""
         if not self.client:
@@ -201,8 +221,22 @@ class DataQualityReporterWidget(QWidget):
         selection = self.entity_combo.currentText()
         
         if selection == "Custom selection...":
-            # TODO: Show custom entity selector dialog
-            entities = ["account", "contact"]
+            custom_input = self.custom_entities.text().strip()
+            if not custom_input:
+                QMessageBox.warning(
+                    self, 
+                    "No Entities", 
+                    "Please enter entity names (comma-separated)."
+                )
+                return
+            entities = [e.strip() for e in custom_input.split(",") if e.strip()]
+            if not entities:
+                QMessageBox.warning(
+                    self, 
+                    "Invalid Input", 
+                    "Please enter valid entity names."
+                )
+                return
         else:
             entities = [e.strip() for e in selection.split(",")]
         

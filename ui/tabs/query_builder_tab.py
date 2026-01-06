@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QGroupBox, QMessageBox, QSpinBox, QComboBox,
     QListWidget, QListWidgetItem, QTextEdit, QTabWidget, QScrollArea,
-    QCompleter
+    QCompleter, QFrame
 )
 from PyQt6.QtCore import pyqtSignal, QThread, Qt, QStringListModel
 from PyQt6.QtGui import QFont
@@ -100,51 +100,69 @@ class QueryBuilderTab(QWidget):
         """Create simple mode interface"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setSpacing(15)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         config_group = QGroupBox("Query Configuration")
         config_layout = QVBoxLayout()
+        config_layout.setSpacing(12)
+        config_layout.setContentsMargins(15, 25, 15, 15)
         
         # Table name with autocomplete
+        table_row = QHBoxLayout()
         table_label = QLabel("Entity Name:")
+        table_label.setFixedWidth(180)
         self.simple_table_input = QLineEdit()
         self.simple_table_input.setPlaceholderText("e.g., account, contact")
         self.table_completer = QCompleter()
         self.simple_table_input.setCompleter(self.table_completer)
-        config_layout.addWidget(table_label)
-        config_layout.addWidget(self.simple_table_input)
+        table_row.addWidget(table_label)
+        table_row.addWidget(self.simple_table_input)
+        config_layout.addLayout(table_row)
         
         # Filter
+        filter_row = QHBoxLayout()
         filter_label = QLabel("Filter (OData $filter):")
+        filter_label.setFixedWidth(180)
         self.simple_filter_input = QLineEdit()
         self.simple_filter_input.setPlaceholderText("e.g., revenue gt 1000000 and statecode eq 0")
-        config_layout.addWidget(filter_label)
-        config_layout.addWidget(self.simple_filter_input)
+        filter_row.addWidget(filter_label)
+        filter_row.addWidget(self.simple_filter_input)
+        config_layout.addLayout(filter_row)
         
         # Select
-        select_label = QLabel("Select Fields (comma-separated):")
+        select_row = QHBoxLayout()
+        select_label = QLabel("Select Fields:")
+        select_label.setFixedWidth(180)
         self.simple_select_input = QLineEdit()
-        self.simple_select_input.setPlaceholderText("e.g., name,revenue,websiteurl")
-        config_layout.addWidget(select_label)
-        config_layout.addWidget(self.simple_select_input)
+        self.simple_select_input.setPlaceholderText("e.g., name,revenue,websiteurl (comma-separated)")
+        select_row.addWidget(select_label)
+        select_row.addWidget(self.simple_select_input)
+        config_layout.addLayout(select_row)
         
         # Order by
+        order_row = QHBoxLayout()
         order_label = QLabel("Order By:")
+        order_label.setFixedWidth(180)
         self.simple_order_input = QLineEdit()
         self.simple_order_input.setPlaceholderText("e.g., revenue desc")
-        config_layout.addWidget(order_label)
-        config_layout.addWidget(self.simple_order_input)
+        order_row.addWidget(order_label)
+        order_row.addWidget(self.simple_order_input)
+        config_layout.addLayout(order_row)
         
         # Top
-        top_layout = QHBoxLayout()
+        top_row = QHBoxLayout()
         top_label = QLabel("Top (limit):")
+        top_label.setFixedWidth(180)
         self.simple_top_spin = QSpinBox()
         self.simple_top_spin.setMinimum(1)
         self.simple_top_spin.setMaximum(5000)
         self.simple_top_spin.setValue(100)
-        top_layout.addWidget(top_label)
-        top_layout.addWidget(self.simple_top_spin)
-        top_layout.addStretch()
-        config_layout.addLayout(top_layout)
+        self.simple_top_spin.setFixedWidth(120)
+        top_row.addWidget(top_label)
+        top_row.addWidget(self.simple_top_spin)
+        top_row.addStretch()
+        config_layout.addLayout(top_row)
         
         config_group.setLayout(config_layout)
         layout.addWidget(config_group)
@@ -176,145 +194,243 @@ class QueryBuilderTab(QWidget):
         return widget
     
     def _create_advanced_mode(self) -> QWidget:
-        """Create advanced visual filter builder"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
+        """Create advanced visual filter builder with full scroll support"""
+        # Top container for the tab content
+        tab_container = QWidget()
+        tab_layout = QVBoxLayout(tab_container)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Entity selection
+        # --- The Main Scroll Area ---
+        main_scroll = QScrollArea()
+        main_scroll.setWidgetResizable(True)
+        main_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        main_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        main_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # The content widget that holds all controls
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setSpacing(20) # More breathing room
+        content_layout.setContentsMargins(15, 15, 15, 15)
+        
+        # --- Section 1: Entity Selection ---
+        entity_group = QGroupBox("1. Select Entity")
         entity_layout = QHBoxLayout()
-        entity_label = QLabel("Entity:")
+        entity_layout.setContentsMargins(15, 25, 15, 15)
+        entity_layout.setSpacing(10)
+        
+        entity_label = QLabel("Attributes from:")
+        entity_label.setFixedWidth(100)
+        
         self.advanced_entity_combo = QComboBox()
         self.advanced_entity_combo.setEditable(True)
-        self.advanced_entity_combo.setPlaceholderText("Select or type entity name...")
+        self.advanced_entity_combo.setPlaceholderText("Search entity (e.g. account)...")
         self.advanced_entity_combo.currentTextChanged.connect(self._on_entity_changed)
+        
         entity_layout.addWidget(entity_label)
         entity_layout.addWidget(self.advanced_entity_combo, stretch=1)
-        layout.addLayout(entity_layout)
+        entity_group.setLayout(entity_layout)
+        content_layout.addWidget(entity_group) # Add to scrollable content
         
-        # Filters section
-        filters_group = QGroupBox("🔍 Filters")
-        filters_layout = QVBoxLayout()
-        
-        # Scroll area for filter conditions
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setMaximumHeight(200)
-        
+        # --- Section 2: Filters ---
+        filters_group = QGroupBox("2. Build Filters (Where)")
+        filters_group_layout = QVBoxLayout()
+        filters_group_layout.setContentsMargins(15, 25, 15, 15)
+        filters_group_layout.setSpacing(10)
+
+        # Filters container (No internal scroll area needed since page scrolls)
         self.filters_container = QWidget()
+        self.filters_container.setStyleSheet("background-color: transparent;")
+        
+        # Layout for the container that holds rows
         self.filters_layout = QVBoxLayout(self.filters_container)
         self.filters_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        scroll.setWidget(self.filters_container)
+        self.filters_layout.setContentsMargins(0, 0, 0, 0)
+        self.filters_layout.setSpacing(8)
         
-        filters_layout.addWidget(scroll)
+        # Instruction / Placeholder
+        self.no_filters_label = QLabel("No filters added. All records will be retrieved.")
+        self.no_filters_label.setStyleSheet("color: #666666; font-style: italic;")
+        self.no_filters_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.filters_layout.addWidget(self.no_filters_label)
         
-        # Add filter button
-        add_filter_btn = QPushButton("➕ Add Filter Condition")
+        filters_group_layout.addWidget(self.filters_container)
+        
+        # Add Button
+        add_filter_btn = QPushButton("➕ Add Condition")
+        add_filter_btn.setFixedWidth(150)
         add_filter_btn.clicked.connect(self._add_filter_condition)
-        filters_layout.addWidget(add_filter_btn)
+        filters_group_layout.addWidget(add_filter_btn, alignment=Qt.AlignmentFlag.AlignRight)
         
-        filters_group.setLayout(filters_layout)
-        layout.addWidget(filters_group)
+        filters_group.setLayout(filters_group_layout)
+        content_layout.addWidget(filters_group) # Add to scrollable content
         
-        # Select fields section
-        fields_group = QGroupBox("📊 Select Fields")
+        # --- Section 3: Columns & Sorting ---
+        # Note: We put this in a VBox now so it flows nicely on small screens
+        # but inside a horizontal group if width permits. For consistent scroll
+        # we will stack them vertically or keep side-by-side but with size constraints.
+        # Let's keep side-by-side but ensure min height.
+        
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(15)
+        
+        # Left: Columns
+        fields_group = QGroupBox("3. Select Columns")
         fields_layout = QVBoxLayout()
+        fields_layout.setContentsMargins(15, 25, 15, 15)
+        fields_layout.setSpacing(5)
         
-        fields_instruction = QLabel("Select fields to retrieve (leave empty for all fields):")
-        fields_layout.addWidget(fields_instruction)
+        fields_help = QLabel("Ctrl+Click to select multiple")
+        fields_help.setStyleSheet("color: #666; font-size: 9pt;")
+        fields_layout.addWidget(fields_help)
         
         self.fields_list = QListWidget()
         self.fields_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
-        self.fields_list.setMaximumHeight(100)
+        self.fields_list.setAlternatingRowColors(True)
+        self.fields_list.setMinimumHeight(200) # Give it good height
         fields_layout.addWidget(self.fields_list)
         
         fields_group.setLayout(fields_layout)
-        layout.addWidget(fields_group)
+        bottom_row.addWidget(fields_group, stretch=3)
         
-        # Order and limit
-        options_layout = QHBoxLayout()
+        # Right: Sorting & Limits
+        options_group = QGroupBox("4. Sort & Limit")
+        options_group.setMinimumWidth(300)
+        options_layout = QVBoxLayout()
+        options_layout.setContentsMargins(15, 25, 15, 15)
+        options_layout.setSpacing(15)
+        options_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
-        # Order by
-        order_label = QLabel("Order By:")
+        # Order By Block
+        order_container = QWidget()
+        order_layout = QVBoxLayout(order_container)
+        order_layout.setContentsMargins(0, 0, 0, 0)
+        order_layout.setSpacing(5)
+        
+        order_lbl = QLabel("Order By:")
+        order_lbl.setStyleSheet("font-weight: bold;")
         self.advanced_order_combo = QComboBox()
-        self.advanced_order_combo.setEditable(True)
         self.advanced_order_combo.setPlaceholderText("Select field...")
+        self.advanced_order_combo.setMinimumHeight(30)
         
         self.advanced_order_dir = QComboBox()
-        self.advanced_order_dir.addItems(["asc", "desc"])
+        self.advanced_order_dir.addItems(["Ascending (A-Z)", "Descending (Z-A)"])
+        self.advanced_order_dir.setMinimumHeight(30)
         
-        options_layout.addWidget(order_label)
-        options_layout.addWidget(self.advanced_order_combo, stretch=1)
-        options_layout.addWidget(self.advanced_order_dir)
+        order_layout.addWidget(order_lbl)
+        order_layout.addWidget(self.advanced_order_combo)
+        order_layout.addWidget(self.advanced_order_dir)
+        options_layout.addWidget(order_container)
         
-        # Top limit
-        top_label = QLabel("Limit:")
+        # Limit Block
+        limit_container = QWidget()
+        limit_layout = QVBoxLayout(limit_container)
+        limit_layout.setContentsMargins(0, 0, 0, 0)
+        limit_layout.setSpacing(5)
+        
+        limit_lbl = QLabel("Max Records:")
+        limit_lbl.setStyleSheet("font-weight: bold;")
         self.advanced_top_spin = QSpinBox()
-        self.advanced_top_spin.setMinimum(1)
-        self.advanced_top_spin.setMaximum(5000)
-        self.advanced_top_spin.setValue(100)
+        self.advanced_top_spin.setRange(1, 10000)
+        self.advanced_top_spin.setValue(50)
+        self.advanced_top_spin.setSuffix(" rows")
+        self.advanced_top_spin.setMinimumHeight(30)
         
-        options_layout.addWidget(top_label)
-        options_layout.addWidget(self.advanced_top_spin)
+        limit_layout.addWidget(limit_lbl)
+        limit_layout.addWidget(self.advanced_top_spin)
+        options_layout.addWidget(limit_container)
         
-        layout.addLayout(options_layout)
+        options_layout.addStretch()
+        options_group.setLayout(options_layout)
+        bottom_row.addWidget(options_group, stretch=1)
         
-        layout.addStretch()
+        content_layout.addLayout(bottom_row)
+        content_layout.addStretch() # Push everything up
         
-        return widget
+        # Set the content to the scroll area
+        main_scroll.setWidget(content_widget)
+        
+        # Add scroll area to the main container
+        tab_layout.addWidget(main_scroll)
+        
+        return tab_container
     
     def _add_filter_condition(self):
         """Add a new filter condition widget"""
+        # Hide the placeholder label if it's visible
+        if hasattr(self, 'no_filters_label') and not self.no_filters_label.isHidden():
+            self.no_filters_label.hide()
+        
         condition_widget = QWidget()
-        condition_layout = QHBoxLayout(condition_widget)
-        condition_layout.setContentsMargins(0, 0, 0, 0)
+        condition_widget.setStyleSheet("background-color: #f9f9f9; border-radius: 4px; border: 1px solid #e0e0e0;")
+        condition_widget.setFixedHeight(50)
         
-        # Field combo
-        field_combo = QComboBox()
-        field_combo.setEditable(True)
-        field_combo.addItems(self.current_fields)
-        field_combo.setPlaceholderText("Field...")
+        # Use simple HBox
+        layout = QHBoxLayout(condition_widget)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(8)
         
-        # Operator combo
-        operator_combo = QComboBox()
-        operator_combo.addItems([
-            "equals (eq)",
-            "not equals (ne)",
-            "greater than (gt)",
-            "greater or equal (ge)",
-            "less than (lt)",
-            "less or equal (le)",
-            "contains",
-            "starts with",
-            "ends with"
+        # Field
+        field_cb = QComboBox()
+        field_cb.setEditable(True)
+        field_cb.addItems(self.current_fields)
+        field_cb.setPlaceholderText("Field...")
+        field_cb.setSizePolicy(
+            field_cb.sizePolicy().horizontalPolicy(), 
+            field_cb.sizePolicy().verticalPolicy()
+        )
+        # make it expand
+        layout.addWidget(field_cb, stretch=4)
+        
+        # Operator
+        op_cb = QComboBox()
+        op_cb.addItems([
+            "eq", "ne", "gt", "ge", "lt", "le", 
+            "contains", "startswith", "endswith"
         ])
+        layout.addWidget(op_cb, stretch=2)
         
-        # Value input
-        value_input = QLineEdit()
-        value_input.setPlaceholderText("Value...")
+        # Value
+        val_le = QLineEdit()
+        val_le.setPlaceholderText("Value...")
+        layout.addWidget(val_le, stretch=3)
         
-        # Remove button
-        remove_btn = QPushButton("✖")
-        remove_btn.setMaximumWidth(30)
-        remove_btn.clicked.connect(lambda: self._remove_filter_condition(condition_widget))
-        
-        condition_layout.addWidget(field_combo, stretch=2)
-        condition_layout.addWidget(operator_combo, stretch=2)
-        condition_layout.addWidget(value_input, stretch=2)
-        condition_layout.addWidget(remove_btn)
+        # Remove
+        del_btn = QPushButton("✕")
+        del_btn.setFixedSize(30, 30)
+        del_btn.setStyleSheet("""
+            QPushButton { 
+                background-color: #ffcdd2; 
+                color: #c62828; 
+                border: none; 
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #ef9a9a; }
+        """)
+        del_btn.clicked.connect(lambda: self._remove_filter_condition(condition_widget))
+        layout.addWidget(del_btn)
         
         self.filters_layout.addWidget(condition_widget)
+        
         self.filter_widgets.append({
             "widget": condition_widget,
-            "field": field_combo,
-            "operator": operator_combo,
-            "value": value_input
+            "field": field_cb,
+            "operator": op_cb,
+            "value": val_le
         })
-    
+
     def _remove_filter_condition(self, widget):
-        """Remove a filter condition"""
-        self.filters_layout.removeWidget(widget)
-        widget.deleteLater()
-        self.filter_widgets = [fw for fw in self.filter_widgets if fw["widget"] != widget]
+        if widget is not None:
+            self.filters_layout.removeWidget(widget)
+            widget.deleteLater()
+            
+            # Remove from list
+            self.filter_widgets = [x for x in self.filter_widgets if x['widget'] != widget]
+            
+            # Show placeholder if empty
+            if not self.filter_widgets and hasattr(self, 'no_filters_label'):
+                self.no_filters_label.show()
     
     def _on_entity_changed(self, entity_name: str):
         """Handle entity selection change"""
@@ -411,7 +527,9 @@ class QueryBuilderTab(QWidget):
             # Add order
             order_field = self.advanced_order_combo.currentText().strip()
             if order_field:
-                order_dir = self.advanced_order_dir.currentText()
+                order_dir_text = self.advanced_order_dir.currentText()
+                # Extract "asc" or "desc" from "Ascending (asc)" or "Descending (desc)"
+                order_dir = "desc" if "desc" in order_dir_text.lower() else "asc"
                 builder.order(order_field, order_dir)
             
             # Add limit

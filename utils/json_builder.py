@@ -25,7 +25,14 @@ class JSONBuilder:
         "Memo": "string"
     }
     
-    def __init__(self, field_mappings: Dict[str, Dict], choice_mappings: Optional[Dict] = None):
+    def __init__(
+        self,
+        field_mappings: Dict[str, Dict],
+        choice_mappings: Optional[Dict] = None,
+        blank_handling: str = "skip_field",
+        default_blank_value: Optional[str] = None,
+        key_attribute: Optional[str] = None,
+    ):
         """
         Initialize JSON builder
         Args:
@@ -33,9 +40,15 @@ class JSONBuilder:
                            {"ExcelCol": {"field": "dvField", "type": "String"}, ...}
             choice_mappings: Optional dict for choice label->value mappings
                            {"dvField": {"Active": 1, "Inactive": 0}, ...}
+            blank_handling: Policy for blank cells (skip_field | set_null | default_value | drop_row)
+            default_blank_value: Value to use when blank_handling is "default_value"
+            key_attribute: Dataverse field that must be present (used for upsert/key checks)
         """
         self.field_mappings = field_mappings
         self.choice_mappings = choice_mappings or {}
+        self.blank_handling = blank_handling
+        self.default_blank_value = default_blank_value
+        self.key_attribute = key_attribute
         self.validator = DataTypeValidator()
         self.formatter = DataFormatter()
     
@@ -56,10 +69,22 @@ class JSONBuilder:
                 continue
             
             value = row_data[excel_col]
+            is_blank = value is None or (isinstance(value, str) and value.strip() == "")
             
-            # Skip empty values
-            if value is None or (isinstance(value, str) and value.strip() == ""):
-                continue
+            if is_blank:
+                if self.blank_handling == "drop_row":
+                    errors.append(f"Blank value found for '{excel_col}' - row dropped")
+                    return {"success": False, "payload": {}, "errors": errors}
+                if self.blank_handling == "set_null":
+                    dv_field = field_info.get("field")
+                    if dv_field:
+                        payload[dv_field] = None
+                    continue
+                if self.blank_handling == "default_value" and self.default_blank_value is not None:
+                    value = self.default_blank_value
+                else:
+                    # skip_field behavior (default)
+                    continue
             
             dv_field = field_info.get("field")
             dv_type = field_info.get("type", "String")
@@ -75,6 +100,16 @@ class JSONBuilder:
                     payload[f"{dv_field}@odata.bind"] = converted_value
                 else:
                     payload[dv_field] = converted_value
+        
+        # Enforce key attribute presence when configured
+        if self.key_attribute:
+            key_field = self.key_attribute
+            key_present = (
+                key_field in payload or
+                f"{key_field}@odata.bind" in payload
+            )
+            if not key_present:
+                errors.append(f"Key attribute '{key_field}' is missing or blank")
         
         return {
             "success": len(errors) == 0,
