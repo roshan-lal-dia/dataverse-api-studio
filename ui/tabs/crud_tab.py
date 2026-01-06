@@ -1,14 +1,19 @@
 """
-CRUD Operations Tab
+CRUD Operations Tab with integrated validation
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QComboBox, QTextEdit, QGroupBox, QMessageBox
+    QPushButton, QComboBox, QTextEdit, QGroupBox, QMessageBox, QCheckBox,
+    QInputDialog
 )
 from PyQt6.QtCore import pyqtSignal, QThread
 from datetime import datetime
 import json
+
+from utils.payload_validator import PayloadValidator
+from utils.error_formatter import ErrorFormatter
+from ui.dialogs import ValidationErrorDialog
 
 
 class CRUDOperationThread(QThread):
@@ -97,6 +102,15 @@ class CRUDTab(QWidget):
         self.record_id_input.setPlaceholderText("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
         table_layout.addWidget(self.record_id_label)
         table_layout.addWidget(self.record_id_input)
+        
+        # Validation checkbox
+        validation_layout = QHBoxLayout()
+        self.validate_checkbox = QCheckBox("✓ Validate payload before execution")
+        self.validate_checkbox.setChecked(True)
+        self.validate_checkbox.setToolTip("Check payload against metadata for required fields, types, and permissions")
+        validation_layout.addWidget(self.validate_checkbox)
+        validation_layout.addStretch()
+        table_layout.addLayout(validation_layout)
         
         table_group.setLayout(table_layout)
         layout.addWidget(table_group)
@@ -187,6 +201,39 @@ class CRUDTab(QWidget):
                 QMessageBox.critical(self, "Invalid JSON", f"JSON parsing error:\n{str(e)}")
                 return
         
+        # Validate payload if enabled
+        if self.validate_checkbox.isChecked() and operation in ["CREATE", "UPDATE"] and data:
+            validation_result = self._validate_payload(table_name, data, operation)
+            if not validation_result["valid"]:
+                # Create user-friendly error message
+                user_friendly_msg = ErrorFormatter.create_user_friendly_message(
+                    validation_result["errors"],
+                    validation_result.get("corrections", [])
+                )
+                
+                # Technical details (raw errors)
+                technical_details = "\n".join(validation_result["errors"])
+                
+                # Show dialog with proper sizing
+                has_corrections = bool(validation_result.get("auto_correction_available"))
+                title = "Validation Errors - Corrections Available" if has_corrections else "Validation Errors"
+                
+                result = ValidationErrorDialog.show_error(
+                    self,
+                    title=title,
+                    message=user_friendly_msg,
+                    detailed_info=technical_details,
+                    has_corrections=has_corrections
+                )
+                
+                if result == "apply":
+                    # Use corrected payload
+                    data = validation_result["corrected"]
+                    self.data_editor.setPlainText(json.dumps(data, indent=2))
+                elif result == "cancel":
+                    return
+                # "proceed" continues with original data
+        
         # Disable button
         self.execute_button.setEnabled(False)
         self.execute_button.setText("⏳ Executing...")
@@ -228,20 +275,39 @@ class CRUDTab(QWidget):
         self.execute_button.setEnabled(True)
         self.execute_button.setText("✅ Execute Operation")
         
-        # Show error
-        QMessageBox.critical(self, "Operation Failed", f"Error:\n{error_msg}")
+        # Format error for user-friendly display
+        formatted_error = ErrorFormatter.format_dataverse_error(error_msg)
         
-        # Prepare operation data
+        # Create user-friendly message
+        user_message = f"{formatted_error['title']}\n\n{formatted_error['message']}"
+        
+        if formatted_error.get('field'):
+            user_message += f"\n\nField: {formatted_error['field']}"
+        
+        user_message += f"\n\n💡 {formatted_error['action']}"
+        
+        # Show dialog with scrollable error details
+        result = ValidationErrorDialog.show_error(
+            self,
+            title=formatted_error['title'],
+            message=user_message,
+            detailed_info=formatted_error['detailed_info'],
+            has_corrections=False
+        )
+        
+        # Prepare operation data for history
         operation_data = {
             "type": f"CRUD - {self.op_combo.currentText()}",
             "table": self.table_input.text(),
             "timestamp": datetime.now().isoformat(),
             "success": False,
-            "error": error_msg
+            "error": formatted_error['title'],
+            "error_details": formatted_error['detailed_info']
         }
         
         # Emit signal
         self.operation_executed.emit(operation_data)
+        
     
     def _refresh_templates(self):
         """Refresh template list"""
@@ -297,3 +363,64 @@ class CRUDTab(QWidget):
         """Load data from external source (e.g., Excel mapper)"""
         self.op_combo.setCurrentText("CREATE")
         self.data_editor.setPlainText(json.dumps(json_data, indent=2))
+    
+    def _validate_payload(self, table_name: str, payload: dict, operation: str) -> dict:
+        """
+        Validate payload against metadata with autocorrect suggestions
+        Returns: {"valid": bool, "errors": List[str], "corrected": dict, "corrections": List[str]}
+        """
+        if not self.client:
+            return {"valid": True, "errors": [], "corrected": payload, "corrections": []}
+        
+        try:
+            # Fetch entity metadata
+            result = self.client.fetch_entity_attributes(table_name)
+            
+            if not result.get("success"):
+                # Cannot validate without metadata - proceed with warning
+                return {
+                    "valid": True,
+                    "errors": ["Warning: Could not fetch metadata for validation"],
+                    "corrected": payload,
+                    "corrections": []
+                }
+            
+            # Create validator
+            validator = PayloadValidator(result, entity_plural_name=None)
+            
+            # Try to autocorrect payload
+            corrected_payload, corrections = validator.autocorrect_payload(payload)
+            
+            # Validate original
+            is_valid, errors = validator.validate_payload(payload, operation)
+            
+            # If not valid, try validating corrected version
+            if not is_valid:
+                corrected_valid, corrected_errors = validator.validate_payload(corrected_payload, operation)
+                
+                # If corrections help, suggest them
+                if corrected_valid and corrections:
+                    return {
+                        "valid": False,
+                        "errors": errors,
+                        "corrected": corrected_payload,
+                        "corrections": corrections,
+                        "auto_correction_available": True
+                    }
+            
+            return {
+                "valid": is_valid,
+                "errors": errors,
+                "corrected": corrected_payload if corrections else payload,
+                "corrections": corrections
+            }
+        
+        except Exception as e:
+            # If validation fails, return warning but allow to proceed
+            return {
+                "valid": True,
+                "errors": [f"Warning: Validation error: {str(e)}"],
+                "corrected": payload,
+                "corrections": []
+            }
+

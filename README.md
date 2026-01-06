@@ -20,19 +20,73 @@ A professional-grade desktop application with **Excel/CSV mapper**, **metadata d
 - **Preview data** - See first 3 rows before import
 - **Bulk generation** - Create 1000s of records at once
 - **Load to CRUD/Batch** - Seamless integration with other tabs
+- **Enhanced edge case handling** - Merged cells, numeric headers, unique header enforcement
 
 #### 🔍 **Metadata Discovery**
 - **Automatic schema fetching** - Get all entities and fields
 - **24-hour caching** - Lightning-fast repeated access
 - **Choice option labels** - Display names for picklist values
+- **Relationship metadata** - Navigate related records (preview)
 - **Manual refresh** - "Refresh Schema" button in auth panel
 - **Field type hints** - See datatypes for each field
+- **Robust parsing** - Handles nested JSON structures
 
 #### 📁 **Template Library**
 - **Save configurations** - Reuse common operations
 - **Placeholder support** - `${variable_name}` syntax
 - **CRUD & Batch templates** - For all operation types
 - **Quick load** - Select from dropdown and fill placeholders
+
+### 🚀 Tier 2/3 Advanced Features
+
+#### 🎨 **Advanced Query Builder**
+- **Visual filter builder** - Drag-free condition builder with AND/OR logic
+- **OData & FetchXML preview** - See generated queries before execution
+- **Entity autocomplete** - Select from available entities
+- **Field multi-select** - Visual selection of fields to retrieve
+- **Dual mode** - Simple text mode or visual builder
+- **Support for all operators** - equals, contains, greater than, starts with, etc.
+- [Full Guide →](docs/TIER2_FEATURES.md#feature-1-advanced-query-builder)
+
+#### 📊 **Enhanced Export Options**
+- **JSON Export** - Full metadata and structure
+- **CSV Export** - Standard comma-separated values
+- **Excel Export** - Formatted with bold headers, auto-sized columns
+- **Power BI Export** - Uppercase headers, UTF-8 BOM, normalized types
+- **One-click exports** - Direct from Results tab
+- [Full Guide →](docs/TIER2_FEATURES.md#feature-2-enhanced-export-options)
+
+#### 🔌 **Plugin System**
+- **Hot-loadable plugins** - No restart required
+- **Custom tabs & actions** - Extend functionality without modifying core
+- **Safe execution** - Isolated namespace, error handling
+- **Example plugin included** - Account Health Check plugin
+- **Easy development** - Simple Python interface
+- [Full Guide →](docs/TIER2_FEATURES.md#feature-3-plugin-system)
+
+#### ✅ **Payload Validation** (Integrated)
+- **Preflight validation** - Check payloads before API calls
+- **✅ CRUD tab integration** - Validation checkbox (on by default)
+- **✅ Batch tab integration** - Validates all operations
+- **Required field detection** - Ensures all required fields present
+- **Type validation** - Validates data types against metadata
+- **Permission checking** - Verifies create/update permissions
+- **Helpful error messages** - Display names + field names
+- **User override** - Can proceed despite warnings
+- [Full Guide →](docs/TIER2_FEATURES.md#feature-4-payload-validation)
+
+#### ⚡ **Progress Indicators** (New)
+- **Batch operations** - Progress bar with percentage and status
+- **Metadata fetch** - Status messages during long operations
+- **User feedback** - Always know what's happening
+- **Professional polish** - Modern application standards
+
+#### 🔧 **EntitySetName Support** (Metadata-based)
+- **Proper collection names** - Uses metadata instead of simple pluralization
+- **Handles irregular plurals** - opportunity → opportunities (not opportunitys)
+- **QueryBuilder integration** - All queries use correct names
+- **Excel Mapper integration** - Batch operations use EntitySetName
+- **Cached for performance** - Fast lookup from metadata
 
 ### 🎨 Modern PyQt6 UI
 - **Fusion theme** - Professional, native-looking interface
@@ -231,6 +285,7 @@ python main.py
 ## 📚 Documentation
 
 - **[TIER1_FEATURES.md](docs/TIER1_FEATURES.md)** - Complete guide to Excel Mapper, Metadata Discovery, Templates
+- **[TIER2_FEATURES.md](docs/TIER2_FEATURES.md)** - 🆕 Advanced Query Builder, Enhanced Exports, Plugin System, Validation
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Module architecture, data flows, extension points
 - **[setup_guide.md](docs/setup_guide.md)** - Detailed installation, Azure AD setup, troubleshooting
 - **[QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)** - Keyboard shortcuts, common filters, error fixes
@@ -595,7 +650,28 @@ If this tool helps you, please give it a star ⭐
 
 ---
 
-**Made with ❤️ for Dataverse developers**
+## 👨‍💻 Credits
 
-*Last Updated: January 2025*
-*Version: 1.0.0*
+**Author:** Roshan Lal J  
+**Contact:** hello@roshanlaldia.top  
+**Location:** Made with ❤️ in Thuckalay, Tamil Nadu, India
+
+### Special Thanks
+- Microsoft Dataverse & Power Platform Team
+- PyQt6 Development Team
+- Open Source Community
+
+---
+
+## 📄 License
+
+MIT License - Free to use and modify for any purpose
+
+---
+
+**Made with ❤️ for Dataverse developers worldwide**
+
+*Version: 2.0.0 Professional Edition*  
+*Last Updated: January 2026*  
+*Crafted in Thuckalay, Tamil Nadu, India* 🇮🇳
+
