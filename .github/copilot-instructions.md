@@ -1,82 +1,209 @@
 # Dataverse API Studio - AI Coding Agent Instructions
 
 ## Project Overview
-Single-file Python GUI application (tkinter) providing a desktop interface for Dataverse Web API operations. Acts as an all-in-one tool for CRUD operations, batch processing (up to 1000 ops/call), OData queries, and data export—supporting all Dataverse datatypes without manual type conversion.
+Modern PyQt6 desktop application (modular architecture) providing comprehensive interface for Dataverse Web API operations. Features include CRUD, batch processing (up to 1000 ops/call), OData queries, Excel/CSV mapper with field mapping, metadata discovery with caching, and template library—supporting all Dataverse datatypes.
 
 ## Architecture
 
-### Two-Class Design
-1. **DataverseClient** (lines 25-192): Pure API client handling authentication (MSAL/OAuth2), HTTP requests (requests library), and batch multipart operations. No UI dependencies.
-2. **DataverseAPIGUI** (lines 198-969): Tkinter-based UI with tabbed interface for CRUD, Batch, Query, and Results operations. Manages form inputs, threading for async operations, and output display.
+### Modular Design (Version 2.0)
+The application has been refactored from monolithic tkinter (v1.0, deprecated) to modular PyQt6 architecture:
+
+1. **Client Layer** (`client/`):
+   - `dataverse_client.py`: Pure API client (CRUD, batch, OData queries)
+   - `metadata_client.py`: Extends DataverseClient with metadata discovery + 24hr caching
+
+2. **UI Layer** (`ui/`):
+   - `main_window.py`: Main orchestrator (tabs, menus, signals)
+   - `panels/`: auth_panel.py, history_panel.py
+   - `tabs/`: crud_tab.py, excel_mapper_tab.py, batch_tab.py, query_tab.py, results_tab.py
+
+3. **Utilities Layer** (`utils/`):
+   - `config.py`: Environment loading (.env parser)
+   - `schema_cache.py`: Local JSON cache with TTL
+   - `validators.py`: Datatype validation (String, Integer, GUID, etc.)
+   - `formatters.py`: Format conversions (dates, lookups, @odata.bind)
+   - `excel_processor.py`: Excel/CSV reader with auto-header detection
+   - `json_builder.py`: Excel→Dataverse JSON conversion with datatype mapping
+   - `template_manager.py`: Save/load templates with ${placeholder} syntax
 
 ### Key Data Flows
-- **Auth**: `.env` → `_load_env_defaults()` → MSAL token → `DataverseClient.authenticate()` → Bearer headers
-- **CRUD**: User input → JSON validation → `create_record()`/`read_record()`/`update_record()`/`delete_record()` → response parsing
-- **Batch**: CSV/JSON file → `_build_batch_body()` (multipart/mixed boundary format) → batch API endpoint
-- **Query**: OData filter/select parameters → `read_multiple()` → table display
+- **Auth**: `.env` → `Config` → `AuthPanel` → `MetadataClient.authenticate()` → MSAL token
+- **CRUD**: User input → validation → `CRUDOperationThread` (QThread) → `DataverseClient` → API
+- **Batch**: JSON array → `batch_operation()` → multipart/mixed format → $batch endpoint
+- **Query**: OData params → `read_multiple()` → results displayed in table + JSON views
+- **Excel Mapper**: File upload → `ExcelProcessor` → header detection → metadata fetch → field mapping UI → `JSONBuilder` → CRUD/Batch tabs
+- **Metadata**: Entity request → `SchemaCache.get()` → cache miss? → API fetch → cache store (24hr TTL)
+- **Templates**: User saves config → `TemplateManager` → `templates/*.template.json` → load with placeholder prompts
 
 ## Critical Patterns
 
 ### Environment Management
-- `.env` file defines `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`, and multiple `ORG_URL_*` variables (auto-detected)
-- App extracts environment names from suffix: `ORG_URL_DEV` → "DEV" dropdown option
-- Environment change triggers auto-population of org URL in read-only field (see `_on_environment_change()`)
+- `.env` defines `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`, `ORG_URL_*` (multiple environments)
+- `Config.get_available_environments()` extracts env names from `ORG_URL_*` suffix
+- AuthPanel dropdown auto-populates with environments
 
-### Batch Operations
-- Multipart body format (lines 169-192): boundary delimiter, Content-Type headers, method+path+JSON per operation
-- Max 1000 operations per batch (API constraint)
-- Line 176: `method = op.get("method", "POST")` assumes POST by default—verify client code passes explicit method for PATCH/DELETE
+### Metadata Caching
+- `SchemaCache` stores fetched metadata in `.cache/` as JSON with timestamp
+- TTL: 24 hours (configurable)
+- Cache keys: `{org_url}/{endpoint}` (e.g., `https___org.crm.dynamics.com_EntityDefinitions`)
+- Manual invalidation: "Refresh Schema" button → `cache.clear_all()`
 
-### Data Type Handling
-- `DATA_TYPES` dict (lines 202-212) maps datatype names to UI hints; no conversion logic—user responsible for format
-- Lookups: expects GUID with `@odata.bind` binding (documented in example helper text)
-- No file upload implementation despite "File" type listed (aspirational only)
+### Excel/CSV Processing
+- **Auto-header detection**: Scores first 5 rows (text content, uniqueness)
+- **Manual override**: Header row spinner in UI
+- **Merged cells**: Reads first cell value
+- **Datatype conversion**: `JSONBuilder` uses `validators` + `formatters`
+- **Choice mapping**: Fetches choice metadata, maps labels to values (case-insensitive)
+- **Lookup formatting**: Auto-adds `@odata.bind` suffix with entity name
 
-### Threading
-- Long operations (auth, API calls) run in background threads to prevent UI freeze
-- Pattern: `threading.Thread(target=..., daemon=True).start()`
+### Template System
+- Templates stored in `templates/*.template.json`
+- Placeholder syntax: `${variable_name}`
+- `TemplateManager.extract_placeholders()` finds all placeholders
+- On load, prompts user to fill placeholders
+- Template types: CRUD, Batch, Query (future)
+
+### Threading Strategy
+All long operations use `QThread` to prevent UI freeze:
+- `AuthThread`: Authentication
+- `CRUDOperationThread`: CRUD ops
+- `BatchOperationThread`: Batch ops
+- `QueryThread`: Query ops
+- `MetadataFetchThread`: Metadata fetching
+
+Pattern:
+```python
+thread = OperationThread(...)
+thread.success.connect(handler)
+thread.error.connect(error_handler)
+thread.start()
+```
+
+### PyQt6 Signals
+- `authenticated(client)`: Auth panel → Main window → Tabs
+- `operation_executed(data)`: Tabs → Main window → Results tab + History panel
+- `load_to_crud_requested(json)`: Excel Mapper → CRUD tab
+- `load_to_batch_requested(ops)`: Excel Mapper → Batch tab
+- `cache_refresh_requested()`: Auth panel → Main window → Client
 
 ## Setup & Execution
 ```bash
 python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
 .\.venv\Scripts\Activate.ps1  # Windows
-source .venv/bin/activate      # Linux/macOS
 pip install -r requirements.txt
-python dataverse_api_gui.py
+python main.py  # New PyQt6 version
+# python dataverse_api_gui.py  # Old tkinter (deprecated)
 ```
 
-**First-time setup**: User must provide Azure app registration (CLIENT_ID, CLIENT_SECRET) and org URL in `.env`—no defaults provided.
+**First-time setup**: Create `.env` with Azure app registration credentials
 
 ## Common Extension Points
 
 ### Adding New CRUD Operations
-- `DataverseClient`: Add method following pattern of `create_record(table_name, data)` → returns `{"success": bool, "data"/"error": str}`
-- GUI: Add tab in `_create_gui()`, call `client.method_name()` with form inputs
+1. Add method to `DataverseClient` (return `{"success": bool, "data"/"error": str}`)
+2. Create/extend tab in `ui/tabs/`
+3. Wire signal to `MainWindow`
 
-### Modifying Batch Processing
-- Edit `_build_batch_body()` to adjust multipart format or `batch_operation()` endpoint version (currently v9.2)
+### Adding New Datatypes
+1. Add validator to `utils/validators.py` (`validate_<type>()`)
+2. Add formatter to `utils/formatters.py` (`format_<type>()`)
+3. Update `JSONBuilder._convert_value()` with new case
 
-### Query Builder Enhancements
-- OData filter/select building happens in `_create_query_tab()` (input fields only)—no dynamic builder logic yet
+### Extending Excel Mapper
+- Add choice option fetching: `MetadataClient.fetch_choice_options(entity, attribute)`
+- Implement in Excel Mapper tab's metadata fetch flow
+- Store in `self.choice_mappings` dict for `JSONBuilder`
+
+### Custom Themes
+- Modify `MainWindow._apply_theme()` stylesheet
+- PyQt6 supports CSS-like styling
 
 ## Testing Notes
-- No unit tests in repo; test manually via GUI
-- Connection test available via "Test Connection" button in auth panel
-- Check operation history in left sidebar for debugging
+- No automated tests yet (manual testing only)
+- Connection test: "🔗 Connect" button in Auth panel
+- Test with sample Excel files in various formats (see `docs/` for examples)
+- Verify metadata caching: check `.cache/` directory timestamps
+- Test templates: save/load with and without placeholders
 
 ## External Dependencies
-- **msal**: OAuth2 token acquisition for Entra ID
+- **PyQt6**: Modern cross-platform UI framework
+- **msal**: OAuth2 token acquisition (Entra ID)
 - **requests**: HTTP client for API calls
 - **python-dotenv**: Environment variable loading
-- **tkinter**: Built-in Python GUI framework
+- **openpyxl**: Excel file reading (.xlsx)
+- **pandas**: CSV/Excel processing (alternative)
 
 ## File Structure Reference
-- `dataverse_api_gui.py`: Main application (969 lines, monolithic)
-- `requirements.txt`: Dependencies (3 packages)
-- `.env`: Secrets file (user-created, git-ignored)
-- `docs/`: Setup guides and examples
-- `README.md`: Features and quick start
+```
+client/
+  ├── dataverse_client.py       # Core API client
+  └── metadata_client.py         # Metadata + caching
+ui/
+  ├── main_window.py             # Main orchestrator
+  ├── panels/
+  │   ├── auth_panel.py          # Auth + connection
+  │   └── history_panel.py       # Operation history
+  └── tabs/
+      ├── crud_tab.py            # CRUD operations
+      ├── excel_mapper_tab.py    # Excel/CSV mapping (Tier 1)
+      ├── batch_tab.py           # Batch operations
+      ├── query_tab.py           # OData queries
+      └── results_tab.py         # Result display
+utils/
+  ├── config.py                  # Environment config
+  ├── schema_cache.py            # Metadata cache (24hr TTL)
+  ├── validators.py              # Datatype validation
+  ├── formatters.py              # Format conversions
+  ├── excel_processor.py         # Excel/CSV reader
+  ├── json_builder.py            # JSON payload generator
+  └── template_manager.py        # Template save/load
+docs/
+  ├── ARCHITECTURE.md            # Module architecture
+  ├── TIER1_FEATURES.md          # Feature user guide
+  ├── setup_guide.md             # Installation guide
+  └── QUICK_REFERENCE.md         # Quick commands
+main.py                          # PyQt6 entry point
+dataverse_api_gui.py             # Old tkinter (DEPRECATED)
+requirements.txt                 # Dependencies
+.env                             # Credentials (git-ignored)
+.cache/                          # Metadata cache (git-ignored)
+templates/                       # User templates (git-ignored)
+```
 
+## Data Type Handling (Excel Mapper)
+- **String**: Direct passthrough, trim whitespace
+- **Integer**: `int()` conversion, reject non-numeric
+- **Decimal**: `float()` conversion
+- **Boolean**: Accepts true/false, yes/no, 1/0 (case-insensitive)
+- **Date**: Parses YYYY-MM-DD, MM/DD/YYYY, etc. → outputs YYYY-MM-DD
+- **DateTime**: Multiple formats → ISO 8601 (YYYY-MM-DDTHH:MM:SSZ)
+- **Lookup**: GUID → `/entityname(guid)` with `@odata.bind` suffix
+- **Choice**: Label (string) → maps to integer value via metadata, or accepts integer directly
+- **Empty values**: Skipped (not included in JSON payload)
 
-## Notes:
-- Whenver implementing code changes update relevant readme and other guides as well, including the agent instructions file.
+## Excel Mapper Details
+- **Header detection**: Analyzes first 5 rows, scores by text content + uniqueness
+- **Preview**: Shows first 3 rows in table widget
+- **Field mapping**: Dropdown assignment (Excel column → Dataverse field)
+- **Metadata fetch**: Background thread fetches entity attributes with types
+- **JSON preview**: Real-time preview of first row as user maps fields
+- **Actions**:
+  - "Generate JSON": Validates all rows, shows summary
+  - "Load to CRUD": Populates CRUD tab with first row
+  - "Load to Batch": Generates batch operations for all rows (POST method)
+
+## Template Details
+- **Placeholder extraction**: Regex `\$\{([^}]+)\}` finds all placeholders
+- **Fill on load**: Prompts user for each placeholder value
+- **Storage**: JSON files in `templates/` with `.template.json` extension
+- **Metadata**: `_metadata` field includes created timestamp, version
+- **Security**: Never store secrets in templates (use placeholders instead)
+
+## Notes
+- Old tkinter version (`dataverse_api_gui.py`) kept as reference with deprecation notice
+- PyQt6 Fusion theme provides modern, native look across platforms
+- All async operations use QThread to prevent UI freezing
+- Cache directory (`.cache/`) and templates directory (`templates/`) auto-created on first run
+- Choice metadata includes display labels, not just values (user-friendly)
+- When implementing code changes, update relevant docs and this instructions file

@@ -1,26 +1,62 @@
-# 🚀 Dataverse Web API Studio - Ultimate Edition
+# 🚀 Dataverse Web API Studio - Professional Edition v2.0
 
-**The #1 Desktop GUI Application for Dataverse Web API Operations**
+**Modern PyQt6 Desktop Application for Dataverse Web API Operations**
 
-A modern, user-friendly Python GUI application that enables you to perform ALL Dataverse Web API operations (CRUD, Batch, Query) regardless of datatype in a single unified interface.
+A professional-grade desktop application with **Excel/CSV mapper**, **metadata discovery**, and **template library**. Perform CRUD operations, batch processing (up to 1000 ops/call), OData queries, and bulk imports with visual field mapping—all in a modern, user-friendly interface.
 
 ![Architecture](https://github.com/roshan-lal-dia/dataverse-api-studio/blob/6167e32a913b8697ea939aff4db110abf83bd47d/docs/dataverse_api_flowchart.png)
 
 ---
 
-## ✨ Features
+## ✨ What's New in v2.0
+
+### 🆕 Tier 1 Features
+
+#### 📊 **Excel/CSV Mapper** (Core Feature)
+- **Visual field mapping** - Map Excel columns to Dataverse fields with dropdowns
+- **Auto-detect headers** - Scans first 5 rows automatically
+- **Datatype conversion** - Automatic conversion (String, Integer, Date, Lookup, Choice, etc.)
+- **Choice label mapping** - Use friendly names like "Active" instead of 1
+- **Preview data** - See first 3 rows before import
+- **Bulk generation** - Create 1000s of records at once
+- **Load to CRUD/Batch** - Seamless integration with other tabs
+
+#### 🔍 **Metadata Discovery**
+- **Automatic schema fetching** - Get all entities and fields
+- **24-hour caching** - Lightning-fast repeated access
+- **Choice option labels** - Display names for picklist values
+- **Manual refresh** - "Refresh Schema" button in auth panel
+- **Field type hints** - See datatypes for each field
+
+#### 📁 **Template Library**
+- **Save configurations** - Reuse common operations
+- **Placeholder support** - `${variable_name}` syntax
+- **CRUD & Batch templates** - For all operation types
+- **Quick load** - Select from dropdown and fill placeholders
+
+### 🎨 Modern PyQt6 UI
+- **Fusion theme** - Professional, native-looking interface
+- **Responsive panels** - Resizable splitters
+- **Background threading** - Non-blocking operations
+- **Status indicators** - Real-time connection and cache status
+- **Tabbed interface** - Clean organization
+
+---
+
+## ✨ Core Features
 
 ### 🎯 Complete CRUD Operations
 - **Create** new records with validation
 - **Read** single records or query multiple with filters
 - **Update** existing records with lookups
 - **Delete** records safely with confirmation
+- **Template support** - Save and reuse configurations
 
 ### ⚡ Batch Operations (Game Changer!)
 - Execute **up to 1,000 operations in ONE API call**
 - Create bulk records **100x faster** than individual calls
 - Support for POST (Create), PATCH (Update), DELETE
-- Load from JSON or CSV files
+- Load from JSON files or Excel Mapper
 - Real-time batch status tracking
 
 ### 🔍 Advanced Querying
@@ -29,35 +65,29 @@ A modern, user-friendly Python GUI application that enables you to perform ALL D
 - Select specific columns to reduce payload
 - Order results by any field
 - Set record limits (1-5000)
+- Export results as JSON or CSV
 
 ### 📊 All Datatype Support
 - **Primitives**: String, Integer, Decimal, Boolean
-- **Date/Time**: Date, DateTime
-- **Complex**: Lookup (with @odata.bind), Choice, Memo, File
+- **Date/Time**: Date, DateTime (multiple format support)
+- **Complex**: Lookup (with @odata.bind), Choice, Memo
+- **Auto-conversion** in Excel Mapper
 - Smart validation for each datatype
 - Helpful examples and tooltips
 
 ### 💾 Export & Import
 - **Export** results as JSON or CSV
-- **Save** query templates for reuse
-- **Load** CSV files for bulk import
+- **Import** from Excel/CSV with visual mapper
+- **Save** operation templates
 - **Copy** results to clipboard
-- **Operation history** tracking
+- **Operation history** tracking (last 20 operations)
 
 ### 🔒 Security & Best Practices
 - Environment variables (.env) for secrets
 - MSAL authentication with Entra ID
 - No hardcoded credentials
 - Secure token handling
-- Thread-safe operations
-
-### 💡 User Guidance & Intelligence
-- Smart defaults based on operation type
-- Input validation with helpful error messages
-- Operation history sidebar
-- Tooltip hints for every field
-- Example JSON snippets
-- Copy-paste ready code blocks
+- Thread-safe operations (PyQt6 QThread)
 
 ---
 
@@ -77,8 +107,9 @@ source .venv/bin/activate          # Linux/macOS
 # OR
 .\.venv\Scripts\Activate.ps1       # Windows PowerShell
 # OR
-.\.venv\Scripts\activate.bat         # Windows CMD
-# Install dependencies
+.\.venv\Scripts\activate.bat       # Windows CMD
+
+# Install dependencies (includes PyQt6, openpyxl, pandas)
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
@@ -97,23 +128,54 @@ ORG_URL_PROD=https://your-org.crm.dynamics.com
 # ORG_URL_SANDBOX=https://your-org-sandbox.crm.dynamics.com
 ```
 
-[Detailed credential setup guide](QUICK_REFERENCE.md#how-to-get-credentials)
+[Detailed credential setup guide](docs/setup_guide.md)
 
 ### 3. Run the Application
 
 ```bash
-python dataverse_api_gui.py
+python main.py
 ```
 
-That's it! 🎉 Your Dataverse GUI app is running.
+**That's it!** 🎉 The modern PyQt6 application launches.
+
+> **Note:** The old tkinter version (`dataverse_api_gui.py`) is deprecated but kept for reference.
 
 ---
 
 ## 📖 Usage Examples
 
-### Example 1: Create an Account (2 seconds)
+### Example 1: Bulk Import from Excel (New in v2.0!) ⭐
 
-1. Select **CRUD Operations** tab
+**Scenario:** Import 500 accounts from Excel spreadsheet
+
+1. Prepare Excel file:
+   ```
+   | Company Name  | Website              | Phone      | Industry   |
+   |---------------|----------------------|------------|------------|
+   | Contoso Corp  | https://contoso.com  | 555-0100   | Technology |
+   | Fabrikam Inc  | https://fabrikam.com | 555-0200   | Technology |
+   ... (498 more rows)
+   ```
+
+2. Open **📊 Excel Mapper** tab
+3. Click **📂 Select File** → Choose `accounts.xlsx`
+4. Select entity: `account`
+5. Click **🔍 Fetch Fields** (loads metadata)
+6. Map columns:
+   - Company Name → `name` (String)
+   - Website → `websiteurl` (String)
+   - Phone → `telephone1` (String)
+   - Industry → `industrycode` (Choice) - Maps "Technology" to value 1
+7. Click **🔨 Generate JSON** → Validates all 500 rows
+8. Click **⚡ Load to Batch**
+9. Review batch operations in Batch tab
+10. Click **⚡ Execute Batch**
+
+**Result:** 500 accounts created in ~5 seconds! ⚡⚡⚡
+
+### Example 2: Create an Account (CRUD Operation)
+
+1. Select **📝 CRUD Operations** tab
 2. Choose **CREATE** operation
 3. Table Name: `account`
 4. Data JSON:
@@ -124,73 +186,147 @@ That's it! 🎉 Your Dataverse GUI app is running.
   "telephone1": "555-0100"
 }
 ```
-5. Click **✅ Execute**
-6. View result in **Results** tab
+5. Click **✅ Execute Operation**
+6. View result in **📋 Results** tab
 
 **You just created your first record!** ✅
 
-### Example 2: Batch Create 500 Accounts (3 seconds)
+### Example 3: Query with Metadata (New in v2.0!)
 
-Instead of 500 API calls, do it in ONE:
+1. Connect to environment (metadata cached automatically)
+2. Select **🔍 Query** tab
+3. Start typing table name: `acc...` (autocomplete from metadata - future)
+4. Table Name: `account`
+5. Filter: `revenue gt 1000000 and statecode eq 0`
+6. Select: `name,revenue,websiteurl`
+7. Order By: `revenue desc`
+8. Top: 100
+9. Click **🔍 Execute Query**
 
-1. Select **⚡ Batch Operations** tab
-2. Paste JSON:
-```json
-[
-  {"method": "POST", "url": "/api/data/v9.2/accounts", "data": {"name": "Company 1"}},
-  {"method": "POST", "url": "/api/data/v9.2/accounts", "data": {"name": "Company 2"}},
-  ... (repeat 498 more)
-]
-```
-3. Click **⚡ Execute Batch**
-4. Done! All 500 records created in seconds
+**Results:** Top 100 richest accounts displayed in table view!
 
-**Performance Comparison:**
-- Individual API calls: ~500 seconds (8+ minutes) ⏱️
-- Batch operation: ~5 seconds ⚡⚡⚡
+### Example 4: Save & Reuse Template (New in v2.0!)
 
-### Example 3: Query Rich Accounts (1 second)
-
-1. Select **🔍 Query** tab
-2. Table Name: `account`
-3. Filter: `revenue gt 1000000 and statecode eq 0`
-4. Select: `name,revenue,websiteurl`
-5. Order By: `revenue desc`
-6. Top: 100
-7. Click **🔍 Execute Query**
-
-**Results:** Get your top 100 richest accounts, ordered by revenue!
-
-### Example 4: Update Owner (1 second)
-
-1. Select **CRUD Operations** tab
-2. Choose **UPDATE** operation
-3. Table Name: `contact`
-4. Record ID: `00000000-0000-0000-0000-000000000001`
-5. Data JSON:
+1. Configure a CRUD operation (e.g., CREATE account)
+2. Use placeholders in JSON:
 ```json
 {
-  "firstname": "John",
-  "lastname": "Doe",
-  "ownerid@odata.bind": "/systemusers(00000000-0000-0000-0000-000000000099)"
+  "name": "${company_name}",
+  "websiteurl": "${website}",
+  "industry": "Technology"
 }
 ```
-6. Click **✅ Execute**
+3. Click **Save Template** → Name: `new_tech_account`
+4. Later: Select template from dropdown
+5. Click **Load Template**
+6. Fill placeholders when prompted:
+   - `company_name`: Fabrikam
+   - `website`: https://fabrikam.com
+7. Click **✅ Execute Operation**
 
-**The contact is now assigned to the new owner!** ✅
+**Reused in seconds!** 🚀
+
+---
+
+## 📚 Documentation
+
+- **[TIER1_FEATURES.md](docs/TIER1_FEATURES.md)** - Complete guide to Excel Mapper, Metadata Discovery, Templates
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Module architecture, data flows, extension points
+- **[setup_guide.md](docs/setup_guide.md)** - Detailed installation, Azure AD setup, troubleshooting
+- **[QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)** - Keyboard shortcuts, common filters, error fixes
+
+---
+
+## 🛠️ Tech Stack
+
+### New in v2.0
+- **PyQt6** - Modern cross-platform UI framework
+- **openpyxl** - Excel file reading (.xlsx)
+- **pandas** - CSV/DataFrame processing
+
+### Core Technologies
+- **Python 3.8+** - Cross-platform compatibility
+- **msal** - Microsoft Authentication Library (OAuth2)
+- **requests** - HTTP client for Dataverse API
+- **python-dotenv** - Environment variable management
+
+---
+
+## 🆕 What's Different in v2.0?
+
+| Feature | v1.0 (Tkinter) | v2.0 (PyQt6) |
+|---------|----------------|--------------|
+| **UI Framework** | tkinter (basic) | PyQt6 (modern) |
+| **Architecture** | Monolithic (1 file) | Modular (multiple modules) |
+| **Excel Mapper** | ❌ | ✅ Visual field mapping |
+| **Metadata Discovery** | ❌ | ✅ With 24hr caching |
+| **Template Library** | ❌ | ✅ With placeholders |
+| **Threading** | Basic Python threads | PyQt6 QThread (robust) |
+| **Theme** | Basic tkinter | Fusion (professional) |
+| **Responsive UI** | Fixed panels | Resizable splitters |
+| **Status Bar** | ❌ | ✅ Real-time status |
+| **Operation History** | Simple list | Rich display with icons |
+
+**Migration:** Old tkinter version kept as `dataverse_api_gui.py` (deprecated)
+
+---
+
+## 📦 Directory Structure
+
+```
+dataverse-api-studio/
+├── main.py                      # PyQt6 entry point (NEW)
+├── dataverse_api_gui.py         # Old tkinter version (deprecated)
+├── requirements.txt             # Updated with PyQt6, openpyxl, pandas
+├── .env                         # Credentials (create this)
+├── .env.example                 # Template
+├── .gitignore                   # Updated for .cache/, templates/
+├── client/                      # API client modules (NEW)
+│   ├── dataverse_client.py      # Core CRUD/Batch operations
+│   └── metadata_client.py       # Metadata fetching + caching
+├── ui/                          # PyQt6 UI components (NEW)
+│   ├── main_window.py           # Main orchestrator
+│   ├── panels/
+│   │   ├── auth_panel.py        # Authentication panel
+│   │   └── history_panel.py     # Operation history
+│   └── tabs/
+│       ├── crud_tab.py          # CRUD operations
+│       ├── excel_mapper_tab.py  # Excel/CSV mapper ⭐
+│       ├── batch_tab.py         # Batch operations
+│       ├── query_tab.py         # OData queries
+│       └── results_tab.py       # Result display
+├── utils/                       # Utility modules (NEW)
+│   ├── config.py                # Environment config
+│   ├── schema_cache.py          # Metadata cache (24hr TTL)
+│   ├── validators.py            # Datatype validation
+│   ├── formatters.py            # Format conversions
+│   ├── excel_processor.py       # Excel/CSV reader
+│   ├── json_builder.py          # JSON payload generator
+│   └── template_manager.py      # Template save/load
+├── docs/
+│   ├── ARCHITECTURE.md          # Architecture documentation (NEW)
+│   ├── TIER1_FEATURES.md       # Feature guide (NEW)
+│   ├── setup_guide.md           # Installation guide
+│   ├── QUICK_REFERENCE.md       # Quick reference
+│   └── dataverse_api_flowchart.png
+├── .cache/                      # Metadata cache (auto-created, git-ignored)
+└── templates/                   # User templates (auto-created, git-ignored)
+```
 
 ---
 
 ## 🎓 Learning Path
 
-| Level | Task | Time |
-|-------|------|------|
-| 🟢 Beginner | Setup credentials & test connection | 5 min |
-| 🟢 Beginner | Create your first record | 2 min |
-| 🟡 Intermediate | Query with filters | 5 min |
-| 🟡 Intermediate | Batch create 10 records | 5 min |
-| 🔴 Advanced | Batch create 1,000 records from CSV | 10 min |
-| 🔴 Advanced | Complex queries with multiple filters | 10 min |
+| Level | Task | Time | New in v2.0? |
+|-------|------|------|--------------|
+| 🟢 Beginner | Setup credentials & test connection | 5 min | |
+| 🟢 Beginner | Create your first record (CRUD) | 2 min | |
+| 🟢 Beginner | **Import 10 rows from Excel** | 5 min | ✅ |
+| 🟡 Intermediate | Query with filters | 5 min | |
+| 🟡 Intermediate | Batch create 10 records | 5 min | |
+| 🟡 Intermediate | **Save and reuse template** | 3 min | ✅ |
+| 🔴 Advanced | **Bulk import 1,000 rows with Excel Mapper** | 10 min | ✅ |
+| 🔴 Advanced | Complex queries with metadata | 10 min | ✅ |
 
 ---
 

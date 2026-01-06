@@ -45,6 +45,8 @@ wheels/
 output/
 results/
 exports/
+.cache/
+templates/
 
 # OS
 .DS_Store

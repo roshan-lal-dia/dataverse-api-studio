@@ -1,5 +1,16 @@
 # ============================================================================
 # ULTIMATE DATAVERSE WEB API GUI APPLICATION
+# 
+# ⚠️ DEPRECATED: This tkinter-based version is kept for reference only.
+# Please use the new PyQt6 version instead: python main.py
+# 
+# The new version includes:
+# - Modern PyQt6 UI with better performance
+# - Excel/CSV mapper with field mapping
+# - Metadata discovery with caching
+# - Template library
+# - All features from this version
+# 
 # Supports: CRUD, Batch Operations, Query, Metadata - All Datatypes Handled
 # Features: User Guidance, Data Validation, Smart Defaults, Export Results
 # ============================================================================
