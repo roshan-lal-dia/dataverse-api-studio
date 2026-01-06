@@ -12,6 +12,8 @@ from datetime import datetime
 import json
 
 from utils.payload_validator import PayloadValidator
+from utils.error_formatter import ErrorFormatter
+from ui.dialogs import ValidationErrorDialog
 
 
 class CRUDOperationThread(QThread):
@@ -203,39 +205,34 @@ class CRUDTab(QWidget):
         if self.validate_checkbox.isChecked() and operation in ["CREATE", "UPDATE"] and data:
             validation_result = self._validate_payload(table_name, data, operation)
             if not validation_result["valid"]:
-                # Show validation errors with autocorrect option
-                error_msg = "Validation failed:\n\n" + "\n".join(f"• {err}" for err in validation_result["errors"])
+                # Create user-friendly error message
+                user_friendly_msg = ErrorFormatter.create_user_friendly_message(
+                    validation_result["errors"],
+                    validation_result.get("corrections", [])
+                )
                 
-                # Check if autocorrect available
-                if validation_result.get("auto_correction_available"):
-                    corrections_msg = "\n\nAuto-corrections available:\n" + "\n".join(f"✓ {corr}" for corr in validation_result["corrections"])
-                    error_msg += corrections_msg
-                    
-                    reply = QMessageBox.warning(
-                        self,
-                        "Validation Errors - Auto-correction Available",
-                        error_msg + "\n\nApply auto-corrections?",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
-                        QMessageBox.StandardButton.No
-                    )
-                    
-                    if reply == QMessageBox.StandardButton.Yes:
-                        # Use corrected payload
-                        data = validation_result["corrected"]
-                        self.data_editor.setPlainText(json.dumps(data, indent=2))
-                    elif reply == QMessageBox.StandardButton.Cancel:
-                        return
-                else:
-                    reply = QMessageBox.warning(
-                        self,
-                        "Validation Errors",
-                        error_msg + "\n\nDo you want to proceed anyway?",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.No
-                    )
-                    
-                    if reply == QMessageBox.StandardButton.No:
-                        return
+                # Technical details (raw errors)
+                technical_details = "\n".join(validation_result["errors"])
+                
+                # Show dialog with proper sizing
+                has_corrections = bool(validation_result.get("auto_correction_available"))
+                title = "Validation Errors - Corrections Available" if has_corrections else "Validation Errors"
+                
+                result = ValidationErrorDialog.show_error(
+                    self,
+                    title=title,
+                    message=user_friendly_msg,
+                    detailed_info=technical_details,
+                    has_corrections=has_corrections
+                )
+                
+                if result == "apply":
+                    # Use corrected payload
+                    data = validation_result["corrected"]
+                    self.data_editor.setPlainText(json.dumps(data, indent=2))
+                elif result == "cancel":
+                    return
+                # "proceed" continues with original data
         
         # Disable button
         self.execute_button.setEnabled(False)
@@ -278,20 +275,39 @@ class CRUDTab(QWidget):
         self.execute_button.setEnabled(True)
         self.execute_button.setText("✅ Execute Operation")
         
-        # Show error
-        QMessageBox.critical(self, "Operation Failed", f"Error:\n{error_msg}")
+        # Format error for user-friendly display
+        formatted_error = ErrorFormatter.format_dataverse_error(error_msg)
         
-        # Prepare operation data
+        # Create user-friendly message
+        user_message = f"{formatted_error['title']}\n\n{formatted_error['message']}"
+        
+        if formatted_error.get('field'):
+            user_message += f"\n\nField: {formatted_error['field']}"
+        
+        user_message += f"\n\n💡 {formatted_error['action']}"
+        
+        # Show dialog with scrollable error details
+        result = ValidationErrorDialog.show_error(
+            self,
+            title=formatted_error['title'],
+            message=user_message,
+            detailed_info=formatted_error['detailed_info'],
+            has_corrections=False
+        )
+        
+        # Prepare operation data for history
         operation_data = {
             "type": f"CRUD - {self.op_combo.currentText()}",
             "table": self.table_input.text(),
             "timestamp": datetime.now().isoformat(),
             "success": False,
-            "error": error_msg
+            "error": formatted_error['title'],
+            "error_details": formatted_error['detailed_info']
         }
         
         # Emit signal
         self.operation_executed.emit(operation_data)
+        
     
     def _refresh_templates(self):
         """Refresh template list"""

@@ -89,15 +89,63 @@ class PayloadValidator:
         Attempt to auto-correct common payload errors
         Returns corrected payload and list of corrections made
         """
-        corrected = dict(payload)
+        corrected = {}
         corrections = []
         
-        for field_name, value in list(corrected.items()):
-            if field_name not in self.attributes or "@odata.bind" in field_name:
+        for field_name, value in payload.items():
+            if field_name not in self.attributes and "@odata.bind" not in field_name:
+                # Keep unknown fields as-is
+                corrected[field_name] = value
                 continue
             
-            attr_meta = self.attributes[field_name]
+            # Handle @odata.bind fields (skip formatting)
+            if "@odata.bind" in field_name:
+                corrected[field_name] = value
+                continue
+            
+            attr_meta = self.attributes.get(field_name, {})
             attr_type = attr_meta.get("AttributeType", "")
+            
+            # LOOKUP FIELD CORRECTION
+            if attr_type == "Lookup":
+                if isinstance(value, str) and (value.startswith("/") or "(" in value):
+                    # Check if it's an alternate key lookup (has = in it)
+                    if "=" in value and "(" in value:
+                        # Alternate key syntax - this is actually valid for Dataverse!
+                        # Just need to ensure it has @odata.bind
+                        corrected_field = f"{field_name}@odata.bind"
+                        corrected[corrected_field] = value
+                        
+                        corrections.append(
+                            f"✅ Alternate key lookup fixed: '{field_name}' → '{corrected_field}'\n"
+                            f"   Value: {value}\n"
+                            f"   Note: URL encoding used for special characters (e.g., %40 for @, %27 for ')"
+                        )
+                    else:
+                        # Regular GUID-based lookup
+                        target_entity = self._infer_target_entity(field_name)
+                        plural_name = self._get_plural_name(target_entity or "owner")
+                        
+                        # Extract GUID
+                        guid = value.strip("/").replace("(", "").replace(")", "")
+                        if "(" in guid or "/" in guid:
+                            guid = guid.split("(")[-1].replace(")", "")
+                        
+                        # Clean GUID
+                        guid = guid.strip()
+                        
+                        corrected_field = f"{field_name}@odata.bind"
+                        corrected_value = f"/{plural_name}({guid})"
+                        corrected[corrected_field] = corrected_value
+                        
+                        corrections.append(
+                            f"✅ Lookup fixed: '{field_name}' → '{corrected_field}'\n"
+                            f"   Value: {value} → {corrected_value}"
+                        )
+                    continue
+                else:
+                    corrected[field_name] = value
+                    continue
             
             # Try to format based on type
             formatted_value, correction = self._autoformat_value(
@@ -107,7 +155,9 @@ class PayloadValidator:
             if formatted_value is not None:
                 corrected[field_name] = formatted_value
                 if correction:
-                    corrections.append(correction)
+                    corrections.append(f"✅ {correction}")
+            else:
+                corrected[field_name] = value
         
         return corrected, corrections
     
@@ -167,7 +217,7 @@ class PayloadValidator:
                 if base_field in self.attributes:
                     # Validate lookup format
                     if not isinstance(value, str) or not value.startswith("/"):
-                        errors.append(f"Invalid lookup format for {field_name}: must start with /")
+                        errors.append(f"Invalid lookup format for {field_name}: must start with / (e.g., /accounts(guid))")
                 continue
             
             # Get attribute metadata
@@ -176,6 +226,34 @@ class PayloadValidator:
             
             attr_meta = self.attributes[field_name]
             attr_type = attr_meta.get("AttributeType", "")
+            
+            # Special handling for Lookup fields without @odata.bind
+            if attr_type == "Lookup":
+                # Check if value looks like it should be a lookup
+                if isinstance(value, str) and (value.startswith("/") or "(" in value):
+                    # User provided a lookup value but didn't use @odata.bind syntax
+                    is_alternate_key = "=" in value and "(" in value  # e.g., /systemusers(systemuserid=...)
+                    
+                    if is_alternate_key:
+                        errors.append(
+                            f"LOOKUP SYNTAX ERROR: Field '{field_name}' uses alternate key syntax.\n"
+                            f"  ⚠️  Current: \"{field_name}\": \"{value}\"\n"
+                            f"  ℹ️  Note: Alternate key syntax requires URL encoding (@, . → %40, %2E)\n"
+                            f"  ✅ Standard format: \"{field_name}@odata.bind\": \"/systemusers(guid)\""
+                        )
+                    else:
+                        target_entity = self._infer_target_entity(field_name)
+                        plural_name = self._get_plural_name(target_entity or "owner")
+                        
+                        # Extract GUID if present
+                        guid = value.strip("/").replace("(", "").replace(")", "").split("(")[-1]
+                        
+                        errors.append(
+                            f"LOOKUP SYNTAX ERROR: Field '{field_name}' is a lookup.\n"
+                            f"  ❌ Current: \"{field_name}\": \"{value}\"\n"
+                            f"  ✅ Correct: \"{field_name}@odata.bind\": \"/{plural_name}({guid})\""
+                        )
+                    continue
             
             # Validate based on type
             type_error = self._validate_type(field_name, value, attr_type, attr_meta)
