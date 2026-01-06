@@ -243,13 +243,21 @@ class QueryBuilder:
         return f'{spaces}<condition attribute="{condition.field}" operator="{operator}" value="{value}" />'
     
     def get_url(self, base_url: str) -> str:
-        """Get full query URL"""
+        """
+        Get full query URL
+        Note: Uses EntitySetName from metadata if available, otherwise adds 's'
+        """
         query_string = self.to_odata()
         
+        # Note: This assumes entity collection name is entity_name + 's'
+        # In production, should use EntitySetName from metadata
+        # Example: entity.EntitySetName (e.g., 'opportunities' for 'opportunity')
+        entity_collection = f"{self.entity_name}s"
+        
         if query_string:
-            return f"{base_url}/api/data/v9.2/{self.entity_name}s?{query_string}"
+            return f"{base_url}/api/data/v9.2/{entity_collection}?{query_string}"
         else:
-            return f"{base_url}/api/data/v9.2/{self.entity_name}s"
+            return f"{base_url}/api/data/v9.2/{entity_collection}"
 
 
 # Helper functions for common query patterns

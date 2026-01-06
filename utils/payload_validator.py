@@ -4,6 +4,15 @@ Validates payloads against metadata before sending to API
 """
 
 from typing import Dict, List, Tuple, Optional, Any
+from enum import Enum
+
+
+class RequiredLevel(str, Enum):
+    """Required level enum for field validation"""
+    NONE = "None"
+    APPLICATION_REQUIRED = "ApplicationRequired"
+    SYSTEM_REQUIRED = "SystemRequired"
+    RECOMMENDED = "Recommended"
 
 
 class PayloadValidator:
@@ -56,8 +65,8 @@ class PayloadValidator:
             
             # Check if field is required
             if isinstance(required_level, dict):
-                value = required_level.get("Value", "None")
-                if value == "ApplicationRequired" or value == "SystemRequired":
+                value = required_level.get("Value", RequiredLevel.NONE.value)
+                if value in [RequiredLevel.APPLICATION_REQUIRED.value, RequiredLevel.SYSTEM_REQUIRED.value]:
                     # Check if field is in payload
                     if attr_name not in payload and f"{attr_name}@odata.bind" not in payload:
                         display_name = self._get_display_name(attr_meta)
@@ -193,8 +202,8 @@ class PayloadValidator:
             required_level = attr_meta.get("RequiredLevel", {})
             
             if isinstance(required_level, dict):
-                value = required_level.get("Value", "None")
-                if value in ["ApplicationRequired", "SystemRequired"]:
+                value = required_level.get("Value", RequiredLevel.NONE.value)
+                if value in [RequiredLevel.APPLICATION_REQUIRED.value, RequiredLevel.SYSTEM_REQUIRED.value]:
                     required.append({
                         "logical_name": attr_name,
                         "display_name": self._get_display_name(attr_meta),
