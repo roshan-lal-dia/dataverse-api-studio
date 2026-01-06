@@ -54,8 +54,10 @@ class MetadataClient(DataverseClient):
             else:
                 return {"success": False, "error": response.text}
         
+        except requests.RequestException as e:
+            return {"success": False, "error": f"Network error: {str(e)}"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"Unexpected error: {str(e)}"}
     
     def fetch_entity_attributes(self, entity_name: str, use_cache: bool = True) -> Dict:
         """
@@ -93,8 +95,10 @@ class MetadataClient(DataverseClient):
             else:
                 return {"success": False, "error": response.text}
         
+        except requests.RequestException as e:
+            return {"success": False, "error": f"Network error: {str(e)}"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"Unexpected error: {str(e)}"}
     
     def fetch_choice_options(self, entity_name: str, attribute_name: str, 
                             use_cache: bool = True) -> Dict:
@@ -146,8 +150,10 @@ class MetadataClient(DataverseClient):
             else:
                 return {"success": False, "error": response.text}
         
+        except requests.RequestException as e:
+            return {"success": False, "error": f"Network error: {str(e)}"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"Unexpected error: {str(e)}"}
     
     def get_entity_list(self, use_cache: bool = True) -> List[str]:
         """

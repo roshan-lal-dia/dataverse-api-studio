@@ -124,10 +124,14 @@ class DataTypeValidator:
         # Check if it's @odata.bind format
         if value_str.startswith('/') and '(' in value_str and ')' in value_str:
             # Extract GUID from format like "/accounts(guid)"
-            guid_match = re.search(r'\(([^)]+)\)', value_str)
+            # Use more specific regex to validate GUID format within parentheses
+            guid_pattern = r'\(([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)'
+            guid_match = re.search(guid_pattern, value_str)
             if guid_match:
                 guid = guid_match.group(1)
                 return DataTypeValidator.validate_guid(guid)
+            else:
+                return False, "Invalid @odata.bind format: GUID not found or malformed"
         
         # Otherwise validate as plain GUID
         return DataTypeValidator.validate_guid(value_str)

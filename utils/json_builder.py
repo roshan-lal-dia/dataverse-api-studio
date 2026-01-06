@@ -203,18 +203,24 @@ class JSONBuilder:
         """
         Extract entity name from lookup field name
         Examples: accountid -> account, ownerid -> systemuser
+        
+        Note: This is a simplistic heuristic. For production use, fetch the target
+        entity from metadata (NavigationProperty.ReferencedEntity) for accuracy.
         """
         # Simple heuristic: remove "id" suffix
         if field_name.endswith("id"):
             base = field_name[:-2]
             
-            # Handle special cases
-            if base == "owner":
-                return "systemuser"
-            elif base == "parentcustomer":
-                return "account"
+            # Handle common special cases
+            # TODO: Replace with metadata lookup for accuracy
+            special_cases = {
+                "owner": "systemuser",
+                "parentcustomer": "account",
+                "createdby": "systemuser",
+                "modifiedby": "systemuser"
+            }
             
-            return base
+            return special_cases.get(base, base)
         
         return field_name
     

@@ -468,15 +468,22 @@ class ExcelMapperTab(QWidget):
             json_builder = JSONBuilder(self.field_mappings, self.choice_mappings)
             result = json_builder.build_json_for_all_rows(self.excel_rows)
             
-            # Create batch operations
+            # Get entity set name (plural form)
+            # Note: This uses simple pluralization. For production, fetch EntitySetName from metadata
             entity_name = self.entity_combo.currentText()
+            entity_set_name = f"{entity_name}s"  # Simple pluralization
+            
+            # TODO: Fetch correct EntitySetName from metadata to handle irregular plurals
+            # entity_def = self.client.fetch_entity_definitions()
+            # entity_set_name = next((e['EntitySetName'] for e in entity_def['entities'] if e['LogicalName'] == entity_name), f"{entity_name}s")
+            
             operations = []
             
             for payload in result["payloads"]:
                 if payload:  # Skip empty payloads
                     operations.append({
                         "method": "POST",
-                        "url": f"/api/data/v9.2/{entity_name}s",
+                        "url": f"/api/data/v9.2/{entity_set_name}",
                         "data": payload
                     })
             

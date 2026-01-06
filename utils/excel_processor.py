@@ -135,7 +135,7 @@ class ExcelProcessor:
         scores = []
         
         for row in rows:
-            if not row:
+            if not row or len(row) == 0:
                 scores.append(0)
                 continue
             
@@ -148,7 +148,8 @@ class ExcelProcessor:
             non_numeric_count = sum(1 for val in row if not self._is_numeric(val))
             
             # Check for unique values (headers are usually unique)
-            unique_ratio = len(set(str(v) for v in row if v)) / len(row) if row else 0
+            # Guard against empty row to prevent division by zero
+            unique_ratio = len(set(str(v) for v in row if v)) / len(row) if len(row) > 0 else 0
             
             # Calculate score
             score = text_count * 2 + non_numeric_count + (unique_ratio * 10)
