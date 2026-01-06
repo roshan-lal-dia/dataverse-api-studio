@@ -251,11 +251,37 @@ ResultsTab displays batch results
 1. **Validators**: Add validation method to `utils/validators.py`
 2. **Formatters**: Add formatting method to `utils/formatters.py`
 3. **JSON Builder**: Update `_convert_value()` in `utils/json_builder.py`
+4. **Payload Validator**: 🆕 Add type checking in `_validate_type()`
 
 ### Adding New Cache Sources
 1. Extend `SchemaCache` or create new cache class
 2. Inject into `MetadataClient` constructor
 3. Update `Config.get_cache_directory()` if needed
+
+### Creating Plugins 🆕
+1. **Create File**: `plugins/my_plugin.py`
+2. **Implement Interface**:
+   ```python
+   def get_plugin_info():
+       return {"name": "...", "version": "..."}
+   
+   def register_tabs(main_window):
+       return [(widget, tab_name), ...]
+   ```
+3. **Reload**: Tools → Plugins → Reload Plugins
+4. [Plugin Guide →](TIER2_FEATURES.md#feature-3-plugin-system)
+
+### Adding Query Operators 🆕
+1. **Add to Enum**: `FilterOperator` in `query_builder.py`
+2. **Implement OData**: In `FilterCondition.to_odata()`
+3. **Implement FetchXML**: In `QueryBuilder._filter_condition_to_fetchxml()`
+4. **Update UI**: Add to operator combo in `query_builder_tab.py`
+
+### Adding Export Formats 🆕
+1. **Add Method**: `_export_<format>()` in `results_tab.py`
+2. **Add Button**: Create button in `_create_ui()`
+3. **Connect Signal**: Wire button click to export method
+4. **Implement Format**: Use appropriate library (openpyxl, pandas, etc.)
 
 ### Custom Themes
 1. Modify `MainWindow._apply_theme()` stylesheet
@@ -279,13 +305,122 @@ ORG_URL_UAT=https://org-uat.crm.dynamics.com
 ```
 .cache/          # Metadata cache (TTL: 24 hours)
 templates/       # User-saved templates (.template.json)
+plugins/         # 🆕 User plugins (hot-loadable)
 client/          # API client modules
 ui/              # PyQt6 UI components
   panels/        # Reusable panels
   tabs/          # Tab widgets
 utils/           # Utility modules
+  query_builder.py        # 🆕 OData/FetchXML query generation
+  payload_validator.py    # 🆕 Preflight validation
+  plugin_manager.py       # 🆕 Plugin system
 docs/            # Documentation
+  TIER2_FEATURES.md       # 🆕 Advanced features guide
+tests/           # Test suites
+  test_tier2_features.py  # 🆕 Tier 2/3 feature tests
 ```
+
+## Tier 2/3 Architecture Additions
+
+### Query Builder Utility (`utils/query_builder.py`)
+**Purpose**: Generate OData and FetchXML queries programmatically
+
+**Key Classes**:
+- `QueryBuilder`: Fluent API for building queries
+- `FilterCondition`: Single filter condition
+- `FilterGroup`: Group of conditions with AND/OR
+- `FilterOperator`: Enum of supported operators
+- `LogicalOperator`: AND/OR enum
+
+**Usage**:
+```python
+builder = QueryBuilder("account")
+builder.select("name", "revenue")
+builder.filter(FilterGroup(LogicalOperator.AND, [
+    FilterCondition("statecode", FilterOperator.EQUAL, 0)
+]))
+odata = builder.to_odata()  # Generate OData
+fetchxml = builder.to_fetchxml()  # Generate FetchXML
+```
+
+### Payload Validator (`utils/payload_validator.py`)
+**Purpose**: Preflight validation against metadata
+
+**Validation Types**:
+1. Required field detection
+2. Type validation (String, Integer, Decimal, Boolean, etc.)
+3. Max length checking
+4. Create/update permission validation
+5. Unknown field detection
+
+**Usage**:
+```python
+validator = PayloadValidator(metadata)
+is_valid, errors = validator.validate_payload(payload, "CREATE")
+if not is_valid:
+    for error in errors:
+        print(f"❌ {error}")
+```
+
+### Plugin Manager (`utils/plugin_manager.py`)
+**Purpose**: Discover and load plugins dynamically
+
+**Features**:
+- Hot-reload without restart
+- Isolated namespace execution
+- Error handling (plugins can't crash main app)
+- Custom tabs and menu actions
+
+**Plugin Interface**:
+```python
+def get_plugin_info():
+    return {"name": "...", "version": "...", "description": "..."}
+
+def register_tabs(main_window):
+    return [(widget, tab_name), ...]
+
+def on_initialize(main_window):
+    pass
+
+def on_client_connected(client):
+    pass
+```
+
+### Enhanced Excel Processor (`utils/excel_processor.py`)
+**New Capabilities**:
+- Merged cell handling (reads from top-left cell)
+- Numeric header conversion (1 → Col_1)
+- Unique header enforcement (Name → Name, Name_1)
+- Better header detection (scores first 5 rows)
+- Value normalization (dates, whitespace)
+
+### Query Builder Tab (`ui/tabs/query_builder_tab.py`)
+**Purpose**: Visual query builder UI
+
+**Modes**:
+1. **Simple Mode**: Direct OData text input
+2. **Visual Builder**: Drag-free condition builder
+
+**Features**:
+- Entity autocomplete from metadata
+- Field multi-select
+- Operator selection (equals, contains, etc.)
+- OData and FetchXML preview
+- Execute and display results
+
+### Enhanced Results Tab (`ui/tabs/results_tab.py`)
+**New Export Options**:
+1. JSON - Standard export
+2. CSV - Comma-separated values
+3. Excel - Formatted with bold headers, auto-width
+4. Power BI - Uppercase headers, UTF-8 BOM, normalized types
+
+**Navigation Features** (preview):
+- Breadcrumb navigation
+- Context menu on table cells
+- Relationship navigation (coming soon)
+
+## Configuration
 
 ## Threading Strategy
 
@@ -316,18 +451,32 @@ thread.start()
 
 ## Testing Strategy
 
-### Manual Testing (no automated tests yet)
+### Automated Testing
+1. **test_modules.py**: Tests utility modules (validators, formatters, cache, templates)
+2. **test_tier2_features.py**: 🆕 Tests Tier 2/3 features (payload validator, query builder, plugin manager, Excel edge cases)
+
+**Run Tests**:
+```bash
+python tests/test_modules.py
+python tests/test_tier2_features.py
+```
+
+### Manual Testing
 1. Connection test via "Test Connection" button
 2. CRUD operations with various datatypes
 3. Excel/CSV import with different file formats
 4. Template save/load with placeholders
 5. Metadata caching and invalidation
 6. Batch operations (small and large batches)
+7. 🆕 Query builder visual mode
+8. 🆕 Plugin loading and execution
+9. 🆕 Export formats (JSON, CSV, Excel, Power BI)
+10. 🆕 Payload validation
 
-### Future: Automated Testing
-- Unit tests for `validators`, `formatters`, `json_builder`
+### Future: Integration Testing
 - Integration tests for `DataverseClient` (with mock API)
 - UI tests with PyQt6 test framework
+- End-to-end workflows
 
 ## Performance Optimizations
 
