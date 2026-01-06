@@ -57,7 +57,7 @@ class ExcelProcessor:
             raise Exception(f"Error reading CSV file: {str(e)}")
     
     def _read_excel(self, header_row: Optional[int] = None) -> Tuple[List[str], List[Dict]]:
-        """Read Excel file"""
+        """Read Excel file with enhanced handling for merged cells and edge cases"""
         try:
             import openpyxl
             
@@ -68,26 +68,57 @@ class ExcelProcessor:
             if header_row is None:
                 header_row = self._detect_header_row_excel(ws)
             
-            # Read headers
+            # Read headers with improved handling
             headers = []
-            for cell in ws[header_row + 1]:  # openpyxl is 1-indexed
+            header_row_cells = list(ws[header_row + 1])  # openpyxl is 1-indexed
+            
+            for cell in header_row_cells:
                 value = cell.value
-                if value:
-                    headers.append(str(value).strip())
+                
+                # Handle merged cells - get value from merged range if needed
+                if value is None and cell.coordinate in ws.merged_cells:
+                    # Find the merged range and get its value
+                    for merged_range in ws.merged_cells.ranges:
+                        if cell.coordinate in merged_range:
+                            # Get value from top-left cell of merged range
+                            top_left = merged_range.start_cell
+                            value = top_left.value
+                            break
+                
+                # Convert value to string and handle various types
+                if value is not None:
+                    # Handle numeric headers (convert to string)
+                    if isinstance(value, (int, float)):
+                        headers.append(f"Col_{int(value)}")
+                    else:
+                        headers.append(str(value).strip())
                 else:
-                    headers.append(f"Column_{cell.column}")
+                    # Generate fallback column name
+                    headers.append(f"Column_{cell.column_letter}")
+            
+            # Ensure unique headers
+            headers = self._ensure_unique_headers(headers)
             
             # Read data rows
             rows = []
-            for row_idx, row in enumerate(ws.iter_rows(min_row=header_row + 2, values_only=True)):
+            for row_idx, row_cells in enumerate(ws.iter_rows(min_row=header_row + 2)):
                 row_dict = {}
-                for col_idx, value in enumerate(row):
+                for col_idx, cell in enumerate(row_cells):
                     if col_idx < len(headers):
-                        # Handle merged cells (value might be None)
-                        row_dict[headers[col_idx]] = value if value is not None else ""
+                        value = cell.value
+                        
+                        # Handle merged cells in data rows
+                        if value is None and cell.coordinate in ws.merged_cells:
+                            for merged_range in ws.merged_cells.ranges:
+                                if cell.coordinate in merged_range:
+                                    value = merged_range.start_cell.value
+                                    break
+                        
+                        # Convert value to appropriate type
+                        row_dict[headers[col_idx]] = self._normalize_value(value)
                 
-                # Skip empty rows
-                if any(row_dict.values()):
+                # Skip completely empty rows
+                if any(v for v in row_dict.values() if v != "" and v is not None):
                     rows.append(row_dict)
             
             wb.close()
@@ -171,6 +202,42 @@ class ExcelProcessor:
             return True
         except (ValueError, TypeError):
             return False
+    
+    def _ensure_unique_headers(self, headers: List[str]) -> List[str]:
+        """Ensure all headers are unique by appending suffixes to duplicates"""
+        seen = {}
+        unique_headers = []
+        
+        for header in headers:
+            if header not in seen:
+                seen[header] = 0
+                unique_headers.append(header)
+            else:
+                seen[header] += 1
+                unique_headers.append(f"{header}_{seen[header]}")
+        
+        return unique_headers
+    
+    def _normalize_value(self, value: Any) -> Any:
+        """Normalize cell value to appropriate Python type"""
+        if value is None:
+            return ""
+        
+        # Handle dates and times
+        from datetime import datetime, date, time
+        if isinstance(value, (datetime, date, time)):
+            return str(value)
+        
+        # Keep numbers as-is
+        if isinstance(value, (int, float)):
+            return value
+        
+        # Convert strings and strip whitespace
+        if isinstance(value, str):
+            return value.strip()
+        
+        # Convert other types to string
+        return str(value)
     
     def get_preview_data(self, num_rows: int = 5) -> Dict:
         """
