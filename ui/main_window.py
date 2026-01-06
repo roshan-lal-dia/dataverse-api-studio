@@ -335,17 +335,25 @@ class MainWindow(QMainWindow):
         <br>
         <p><b>Features:</b></p>
         <ul>
-            <li>CRUD Operations</li>
+            <li>CRUD Operations with Validation</li>
             <li>Batch Processing (up to 1000 ops)</li>
+            <li>Bulk Update/Delete with Filters</li>
             <li>Excel/CSV Mapper with visual field mapping</li>
             <li>Advanced Query Builder with OData/FetchXML</li>
             <li>Metadata Discovery with 24hr caching</li>
             <li>Template Library</li>
-            <li>Plugin System</li>
+            <li>Plugin System (Hot-reload)</li>
             <li>Enhanced Exports (JSON, CSV, Excel, Power BI)</li>
+            <li>Progress Indicators</li>
+            <li>EntitySetName Support</li>
         </ul>
         <br>
         <p><b>Loaded Plugins:</b> {plugin_count}</p>
+        <br>
+        <hr>
+        <p><b>Author:</b> Roshan Lal J</p>
+        <p><b>Contact:</b> hello@roshanlaldia.top</p>
+        <p><b>Made with ❤️ in:</b> Thuckalay, Tamil Nadu, India 🇮🇳</p>
         """
         
         plugin_count = len(self.plugin_manager.get_loaded_plugins())

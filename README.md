@@ -650,7 +650,28 @@ If this tool helps you, please give it a star ⭐
 
 ---
 
-**Made with ❤️ for Dataverse developers**
+## 👨‍💻 Credits
 
-*Last Updated: January 2025*
-*Version: 1.0.0*
+**Author:** Roshan Lal J  
+**Contact:** hello@roshanlaldia.top  
+**Location:** Made with ❤️ in Thuckalay, Tamil Nadu, India
+
+### Special Thanks
+- Microsoft Dataverse & Power Platform Team
+- PyQt6 Development Team
+- Open Source Community
+
+---
+
+## 📄 License
+
+MIT License - Free to use and modify for any purpose
+
+---
+
+**Made with ❤️ for Dataverse developers worldwide**
+
+*Version: 2.0.0 Professional Edition*  
+*Last Updated: January 2026*  
+*Crafted in Thuckalay, Tamil Nadu, India* 🇮🇳
+
