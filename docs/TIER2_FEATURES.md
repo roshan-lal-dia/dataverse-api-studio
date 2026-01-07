@@ -656,6 +656,231 @@ class MyPlugin(PluginInterface):
 - Schedule exports
 - API rate limit handling
 
+## Feature 7: Deep Insert Batch Operations (Content-ID References)
+
+### What is Deep Insert?
+
+Deep Insert is a Dataverse batch operation pattern that creates **multiple related records in a single API call** without needing to extract and read GUIDs between operations.
+
+### Key Benefits
+
+- ✅ **No Read Calls Required** - Use `$1`, `$2` references instead of GUID extraction
+- ✅ **Single API Call** - All operations atomic-like (caveat below)
+- ✅ **Efficient** - One network round-trip for complex hierarchies
+- ✅ **Auto-GUID Injection** - Dataverse handles GUID mapping automatically
+- ✅ **Scalable** - Supports up to 1000 operations per batch
+
+### The Problem (Traditional Approach)
+
+Without deep insert, creating related records requires **multiple API calls**:
+
+```
+1. POST /mdm_articles (Article 1) → Get GUID from response
+                       ↓ (must read OData-EntityId header)
+2. POST /mdm_articles (Article 2) → Get GUID from response
+                       ↓ (must read OData-EntityId header)
+3. POST /mdm_articlerelationships (with both GUIDs)
+```
+
+**Drawbacks:**
+- 3 API calls instead of 1
+- Must parse response headers to extract GUIDs
+- More network latency
+- More code complexity
+
+### The Solution: Content-ID References
+
+Dataverse batch operations support **Content-ID headers** that create implicit references between operations:
+
+```
+BATCH REQUEST:
+--batch_001
+Content-ID: 1
+POST /mdm_articles
+{"mdm_article_id": "Article_001", "mdm_name": "First Article", ...}
+
+--batch_001
+Content-ID: 2
+POST /mdm_articles
+{"mdm_article_id": "Article_002", "mdm_name": "Second Article", ...}
+
+--batch_001
+Content-ID: 3
+POST /mdm_articlerelationships
+{
+  "mdm_parentarticle@odata.bind": "/$1",      ← References Op 1 (Content-ID: 1)
+  "mdm_childarticle@odata.bind": "/$2",       ← References Op 2 (Content-ID: 2)
+  ...other required fields...
+}
+```
+
+### How It Works
+
+1. **Operation 1** (`Content-ID: 1`) creates Article 1 → Dataverse assigns GUID internally
+2. **Operation 2** (`Content-ID: 2`) creates Article 2 → Dataverse assigns GUID internally
+3. **Operation 3** (`Content-ID: 3`) references `/$1` and `/$2` → Dataverse automatically substitutes with actual GUIDs
+4. **Result**: All 3 operations complete in **ONE batch call** with **ZERO GUID extraction**
+
+### Reference Syntax
+
+| Syntax | Meaning |
+|--------|---------|
+| `/$1` | Reference the record created by operation with Content-ID: 1 |
+| `/$2` | Reference the record created by operation with Content-ID: 2 |
+| `/$3` | Reference the record created by operation with Content-ID: 3 |
+| etc. | Up to 1000 operations per batch |
+
+### Example: Two Articles + Relationship
+
+**Schema:**
+- **mdm_article** (main table)
+  - `mdm_article_id` (string) - required
+  - `mdm_name` (string) - required
+  - `statecode` (choice) - optional
+  
+- **mdm_articlerelationship** (relationship table)
+  - `mdm_parentarticle` (lookup to mdm_article) - required
+  - `mdm_childarticle` (lookup to mdm_article) - required
+
+**Batch JSON (3 operations):**
+
+```json
+[
+  {
+    "id": "1",
+    "method": "POST",
+    "url": "/api/data/v9.2/mdm_articles",
+    "data": {
+      "mdm_article_id": "Article_001",
+      "mdm_name": "Test Article 1",
+      "statecode": 0
+    }
+  },
+  {
+    "id": "2",
+    "method": "POST",
+    "url": "/api/data/v9.2/mdm_articles",
+    "data": {
+      "mdm_article_id": "Article_002",
+      "mdm_name": "Test Article 2",
+      "statecode": 0
+    }
+  },
+  {
+    "id": "3",
+    "method": "POST",
+    "url": "/api/data/v9.2/mdm_articlerelationships",
+    "data": {
+      "mdm_parentarticle@odata.bind": "/$1",
+      "mdm_childarticle@odata.bind": "/$2"
+    }
+  }
+]
+```
+
+**Result:**
+- ✅ Article 1 created with GUID (e.g., `{12345678-1234-1234-1234-123456789012}`)
+- ✅ Article 2 created with GUID (e.g., `{87654321-4321-4321-4321-210987654321}`)
+- ✅ Relationship created linking Article 1 → Article 2
+- ✅ All in ONE API batch call
+- ✅ No GUID extraction needed
+
+### Using the POC Script
+
+**File:** `scripts/article_deep_insert_poc.py`
+
+This standalone script demonstrates deep insert with auto-populated required fields:
+
+```bash
+cd /path/to/api-studio
+python scripts/article_deep_insert_poc.py
+```
+
+**Script Features:**
+1. Auto-discovers required fields for `mdm_article` and `mdm_articlerelationship`
+2. Auto-populates string fields with placeholders (e.g., `Article_001`)
+3. Auto-selects first choice/lookup option for required fields
+4. Displays batch template for review
+5. Prompts final confirmation
+6. Executes batch operation
+7. Reports success with created GUIDs
+
+### Limitations & Caveats
+
+⚠️ **Batch operations are NOT transactional**
+
+- If operation 3 fails, operations 1 & 2 still succeed
+- You end up with orphaned articles and no relationship
+- **Recommendation**: In production, add compensating delete logic or use SQL transaction logs
+
+⚠️ **Reference scope is per-batch**
+
+- `$1` references only exist within the same batch
+- Cannot reference operations across multiple batch calls
+- Maximum batch size: 1000 operations
+
+⚠️ **No conditional logic**
+
+- Cannot skip or conditionally execute operations
+- All operations must be self-contained
+- Pre-calculate all values before building batch
+
+### When to Use Deep Insert
+
+✅ **Good Use Cases:**
+- Creating parent + children hierarchies (articles + sub-articles)
+- Bulk relationships (many-to-many setup)
+- Data migrations with complex schemas
+- POC testing with multiple entity types
+
+❌ **Poor Use Cases:**
+- Simple single-record creates (too complex)
+- Updates to existing records (use standard PATCH)
+- Conditional creates based on lookup results (use sequential calls)
+
+### Performance
+
+| Scenario | Calls | Time |
+|----------|-------|------|
+| Traditional (3 creates) | 3 API calls | ~300ms (high latency) |
+| Deep Insert | 1 API call | ~100ms (3x faster) |
+| Bulk (100 creates) | 100 API calls | ~10s | 
+| Deep Insert (100 creates) | 1 API call | ~1s (10x faster) |
+
+### API Details
+
+**Batch Endpoint:**
+```
+POST {org_url}/api/data/v9.2/$batch
+Content-Type: multipart/mixed;boundary=batch_xxxxx
+```
+
+**Content-ID Format:**
+```
+Content-ID: {operation_id}
+```
+
+**Reference Format in Payload:**
+```json
+{
+  "lookup_field@odata.bind": "/{entity_set}(${operation_id})"
+}
+```
+
+### Troubleshooting
+
+**Problem:** "Invalid content-id in the operation"
+- **Solution:** Ensure `Content-ID` header is in HTTP part (before JSON), not in payload
+
+**Problem:** "Reference $5 not found"
+- **Solution:** Verify Content-ID exists (operation 5 must exist before reference)
+
+**Problem:** "Lookup binding failed"
+- **Solution:** Ensure `@odata.bind` suffix is present on lookup fields
+
+**Problem:** "Batch partially failed"
+- **Solution:** Check individual operation responses; operation 3 may have failed while 1-2 succeeded
+
 ---
 
 ## Feedback & Support
@@ -670,4 +895,4 @@ class MyPlugin(PluginInterface):
 **Made with ❤️ for Dataverse developers**
 
 *Last Updated: January 2025*
-*Version: 2.0.0*
+*Version: 2.1.0*

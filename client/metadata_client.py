@@ -300,8 +300,13 @@ class MetadataClient(DataverseClient):
             
             params = {
                 "$select": "LogicalName",
-                "$expand": "ManyToOneRelationships($select=ReferencedEntity,ReferencedAttribute,ReferencingAttribute,SchemaName),"
-                          "OneToManyRelationships($select=ReferencedEntity,ReferencedAttribute,ReferencingAttribute,ReferencingEntity,SchemaName)"
+                # Include navigation property names for resolution when needed
+                "$expand": (
+                    "ManyToOneRelationships($select=ReferencedEntity,ReferencedAttribute,ReferencingAttribute,SchemaName,"
+                    "ReferencedEntityNavigationPropertyName),"
+                    "OneToManyRelationships($select=ReferencedEntity,ReferencedAttribute,ReferencingAttribute,ReferencingEntity,SchemaName,"
+                    "ReferencingEntityNavigationPropertyName,ReferencedEntityNavigationPropertyName)"
+                )
             }
             
             response = requests.get(url, headers=headers, params=params)

@@ -155,24 +155,52 @@ class DataverseClient:
             return {"success": False, "error": response.text}
     
     def _build_batch_body(self, batch_id: str, operations: List[Dict]) -> str:
-        """Build multipart batch body"""
+        """
+        Build multipart batch body with support for Content-ID references.
+        
+        Content-ID enables deep insert: operations can reference other operations' 
+        created records using $1, $2, etc. syntax without needing to extract GUIDs.
+        
+        Example:
+            Op 1 (id: "1"): POST /mdm_articles -> creates Article 1
+            Op 2 (id: "2"): POST /mdm_articles -> creates Article 2
+            Op 3 (id: "3"): POST /mdm_articlerelationships with:
+                "mdm_parentarticle@odata.bind": "/$1"  <- references Op 1's GUID
+                "mdm_childarticle@odata.bind": "/$2"   <- references Op 2's GUID
+        """
         body = ""
         
         for idx, op in enumerate(operations, 1):
             body += f"--{batch_id}\r\n"
             body += "Content-Type: application/http\r\n"
-            body += "Content-Transfer-Encoding: binary\r\n\r\n"
+            body += "Content-Transfer-Encoding: binary\r\n"
+            
+            # Add Content-ID header if operation has an id field (for deep insert)
+            content_id = op.get("id")
+            if content_id:
+                body += f"Content-ID: {content_id}\r\n"
+            
+            body += "\r\n"
             
             method = op.get("method", "POST")
             url_path = op.get("url", "")
             data = op.get("data", {})
             
-            body += f"{method} {url_path} HTTP/1.1\r\n"
-            body += "Content-Type: application/json\r\n\r\n"
+            # Prepare the HTTP request line and headers
+            http_request = f"{method} {url_path} HTTP/1.1\r\n"
+            http_request += "Content-Type: application/json\r\n"
             
+            # Add Content-Length if we have data
             if data:
-                body += json.dumps(data)
+                data_str = json.dumps(data)
+                http_request += f"Content-Length: {len(data_str.encode('utf-8'))}\r\n"
+                http_request += "\r\n"
+                http_request += data_str
+            else:
+                http_request += "Content-Length: 0\r\n"
+                http_request += "\r\n"
             
+            body += http_request
             body += "\r\n"
         
         body += f"--{batch_id}--"
