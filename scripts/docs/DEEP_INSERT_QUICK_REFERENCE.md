@@ -2,19 +2,43 @@
 
 ## TL;DR
 
-**3 POST calls. No reads. Parent/child linked. Two options:**
+**1 API call = 3 records created and linked!** 🎉
 
 ```bash
-# Option 1: GUID from headers
-python scripts/article_sequential_create.py --env=DEV --auto-confirm
+# TRUE Deep Insert - RECOMMENDED!
+python scripts/article_true_deep_insert.py --env=DEV --option=B --auto-confirm
 
-# Option 2: Alternate Keys (NO GUID!) ✨
-python scripts/article_alternate_key_create.py --env=DEV --auto-confirm
+# Batch Upsert (idempotent)
+python scripts/article_true_deep_insert.py --env=DEV --option=C --auto-confirm
+
+# Legacy: 3 Sequential calls
+python scripts/article_sequential_create.py --env=DEV --auto-confirm
 ```
 
 ---
 
 ## The Working Pattern
+
+### TRUE Deep Insert (1 call = 3 records!) 🎯
+
+```python
+# Single POST creates Parent + Relationship + Child!
+POST /mdm_articles
+{
+  "mdm_itemcode": "PARENT001",
+  "mdm_articlerelationship_ParentArticle_mdm_article": [
+    {
+      "mdm_relationshipname": "Link",
+      "mdm_ChildArticle": {           ← NESTED CHILD CREATION!
+        "mdm_itemcode": "CHILD001",
+        "mdm_article_id": "Child"
+      }
+    }
+  ]
+}
+```
+
+### Legacy: Sequential with GUID Binding (3 calls)
 
 ```python
 # Step 1: Create Article 1
@@ -147,7 +171,8 @@ Output shows:
 
 | Script | Purpose |
 |--------|---------|
+| `article_true_deep_insert.py` | 🎯 RECOMMENDED - TRUE Deep Insert (1 call = 3 records!) |
 | `article_sequential_create.py` | ✅ Working POC (3 POSTs, GUID binding) |
-| `article_alternate_key_create.py` | ✅ Working POC (3 POSTs, NO GUID!) ✨ |
+| `article_alternate_key_create.py` | ✅ Working POC (3 POSTs, alternate keys) |
 | `discover_nav_props.py` | Find nav prop names & keys |
-| `article_deep_insert_poc.py` | ⚠️ Deprecated (batch issues) |
+| `article_deep_insert_poc.py` | ⚠️ Deprecated (old batch issues) |

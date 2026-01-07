@@ -2,19 +2,39 @@
 
 ## ✅ Solutions That Work
 
-### Option 1: Sequential POSTs with GUID Binding
+### 🎯 Option B: TRUE Deep Insert - 1 API CALL! (RECOMMENDED)
 ```
-POST Article 1  →  Get GUID from OData-EntityId header
-POST Article 2  →  Get GUID from OData-EntityId header  
-POST Relationship  →  Use @odata.bind with captured GUIDs
+POST /mdm_articles
+{
+  "mdm_itemcode": "PARENT001",
+  "mdm_articlerelationship_ParentArticle_mdm_article": [
+    {
+      "mdm_relationshipname": "Link",
+      "mdm_ChildArticle": {             ← NESTED CHILD CREATION!
+        "mdm_itemcode": "CHILD001"
+      }
+    }
+  ]
+}
 ```
+**1 API call → 3 records created and linked!** 🎉
 
-### Option 2: Alternate Keys (NO GUID NEEDED!) ✨
+### Option A: Deep Insert (Child First)
 ```
-POST Article 1 with mdm_itemcode='PARENT001'
-POST Article 2 with mdm_itemcode='CHILD001'
-POST Relationship  →  Reference by business key, not GUID!
+POST Article 2 (Child)  →  Create with mdm_itemcode
+POST Article 1 (Parent) →  Deep insert with nested relationship
+                            (references child via alternate key)
 ```
+**2 API calls, 0 GUIDs needed**
+
+### Option C: Batch Upsert (Idempotent Pattern)
+```
+POST /$batch
+  PATCH Article 1 (upsert via alternate key)
+  PATCH Article 2 (upsert via alternate key)
+  POST Relationship (using alternate key bindings)
+```
+**1 batch request, idempotent (re-run safe), transactional**
 
 **Key Discovery:** Navigation properties use **PascalCase** (`mdm_ParentArticle`, `mdm_ChildArticle`), not lowercase!
 
@@ -24,10 +44,11 @@ POST Relationship  →  Reference by business key, not GUID!
 
 ### Working Scripts
 ```
+scripts/article_true_deep_insert.py     [RECOMMENDED] TRUE Deep Insert (1 call = 3 records!)
 scripts/article_sequential_create.py    [WORKING] 3 POSTs with GUID binding
-scripts/article_alternate_key_create.py [WORKING] 3 POSTs with alternate keys (NO GUID!) ✨
+scripts/article_alternate_key_create.py [WORKING] 3 POSTs with alternate keys
 scripts/discover_nav_props.py           Metadata discovery utility
-scripts/article_deep_insert_poc.py      [DEPRECATED] Batch approach (linking issues)
+scripts/article_deep_insert_poc.py      [DEPRECATED] Old batch approach
 ```
 
 ### Documentation
@@ -97,16 +118,17 @@ The `mdm_article` table has alternate keys configured:
 ## 🚀 Quick Start
 
 ```bash
-# Option 1: GUID binding (extracts GUID from response headers)
+# RECOMMENDED: TRUE Deep Insert (1 call = 3 records!)
+python scripts/article_true_deep_insert.py --env=DEV --option=B --auto-confirm
+
+# Alternative: Batch Upsert (idempotent, re-run safe)
+python scripts/article_true_deep_insert.py --env=DEV --option=C --auto-confirm
+
+# Legacy: Sequential POSTs
 python scripts/article_sequential_create.py --env=DEV --auto-confirm
 
-# Option 2: Alternate Keys (NO GUID needed!) ✨
-python scripts/article_alternate_key_create.py --env=DEV --auto-confirm
-
 # Expected output:
-# ✅ Article 1 created
-# ✅ Article 2 created  
-# ✅ Relationship created with parent/child properly linked!
+# ✅ All 3 records created and linked in 1 API call!
 ```
 
 ---
@@ -116,9 +138,10 @@ python scripts/article_alternate_key_create.py --env=DEV --auto-confirm
 | Approach | API Calls | Linking Works? | Status |
 |----------|-----------|----------------|--------|
 | Batch + Content-ID ($1, $2) | 1 | ❌ No | Deprecated |
-| Batch + @odata.bind with $n | 1 | ❌ No | Failed |
-| 3 Sequential + GUID binding | 3 | ✅ Yes | **WORKING** |
-| 3 Sequential + Alternate Keys | 3 | ✅ Yes | **WORKING** ✨ |
+| 3 Sequential + GUID binding | 3 | ✅ Yes | Working |
+| 3 Sequential + Alternate Keys | 3 | ✅ Yes | Working |
+| **TRUE Deep Insert (nested child)** | **1** | ✅ Yes | **RECOMMENDED** 🎉 |
+| Batch Upsert (idempotent) | 1 batch | ✅ Yes | Working |
 
 ---
 
