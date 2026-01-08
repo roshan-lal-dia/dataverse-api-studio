@@ -1,6 +1,6 @@
 # Dataverse Web API Reference - Knowledge Transfer Document
 
-**Version:** 3.0.0  
+**Version:** 3.1.0  
 **Date:** January 8, 2026  
 **Audience:** Databricks Team  
 **Purpose:** Complete API reference for creating Article records with relationships in Dataverse
@@ -14,27 +14,37 @@
 3. [Base Configuration](#3-base-configuration)
 4. [API Approaches Overview](#4-api-approaches-overview)
 5. [Approach A: TRUE Deep Insert (RECOMMENDED)](#5-approach-a-true-deep-insert-recommended)
-6. [Approach B: Batch Upsert (Idempotent)](#6-approach-b-batch-upsert-idempotent)
-7. [Approach C: Sequential POSTs](#7-approach-c-sequential-posts)
-8. [Navigation Properties Reference](#8-navigation-properties-reference)
-9. [Alternate Keys Reference](#9-alternate-keys-reference)
-10. [Error Handling](#10-error-handling)
-11. [Databricks Implementation Notes](#11-databricks-implementation-notes)
+6. [Approach A+: Multiple Children Deep Insert](#6-approach-a-multiple-children-deep-insert)
+7. [Approach B: Batch Upsert (Idempotent)](#7-approach-b-batch-upsert-idempotent)
+8. [Approach C: Sequential POSTs](#8-approach-c-sequential-posts)
+9. [Navigation Properties Reference](#9-navigation-properties-reference)
+10. [Alternate Keys Reference](#10-alternate-keys-reference)
+11. [Error Handling](#11-error-handling)
+12. [Databricks Implementation Notes](#12-databricks-implementation-notes)
 
 ---
 
 ## 1. Executive Summary
 
 ### Goal
-Create **2 Article records** and **1 Relationship record** linking them, without any GET/READ operations.
+Create **Article records** and **Relationship records** linking them, without any GET/READ operations.
+
+### Use Cases Supported
+
+| Scenario | Records Created | API Calls |
+|----------|-----------------|----------|
+| 1 Parent + 1 Child + 1 Relationship | 3 | 1 |
+| **1 REG + 5 LVs + 5 Relationships** | **11** | **1** |
+| 1 REG + N LVs + N Relationships | 1 + 2N | 1 |
 
 ### Working Solutions
 
 | Approach | API Calls | Idempotent | Transactional | Recommended |
 |----------|-----------|------------|---------------|-------------|
 | **TRUE Deep Insert** | 1 | No | Yes | ✅ **YES** |
+| **Multiple Children Deep Insert** | 1 | No | Yes | ✅ **For 1:N** |
 | Batch Upsert | 1 (batch) | ✅ Yes | Yes | For re-runs |
-| Sequential POSTs | 3 | No | No | Legacy |
+| Sequential POSTs | 3+ | No | No | Legacy |
 
 ### Key Discovery
 Navigation properties use **PascalCase** (e.g., `mdm_ParentArticle`), not lowercase field names (e.g., `mdm_parentarticle`).
@@ -383,7 +393,338 @@ result = true_deep_insert(org_url, token, parent, child, "Parent-Child Link")
 
 ---
 
-## 6. Approach B: Batch Upsert (Idempotent)
+## 6. Approach A+: Multiple Children Deep Insert
+
+### Overview
+
+Create **1 Parent + N Children + N Relationships** in a **SINGLE API call**!
+
+**Real Use Case:** "If we have 5 LV (Logistical Variants) that we need to associate with 1 REG (Regular Article)"
+
+### Result: 11 Records in 1 API Call!
+
+| Created | Count |
+|---------|-------|
+| REG (Parent Article) | 1 |
+| LV (Child Articles) | 5 |
+| Relationships | 5 |
+| **Total** | **11** |
+| **API Calls** | **1** |
+
+### HTTP Request
+
+```http
+POST {ORG_URL}/api/data/v9.2/mdm_articles
+Authorization: Bearer {access_token}
+Content-Type: application/json
+OData-MaxVersion: 4.0
+OData-Version: 4.0
+Prefer: return=representation
+```
+
+### Request Payload (1 REG + 5 LVs)
+
+```json
+{
+  "mdm_itemcode": "REG_001",
+  "mdm_article_id": "Regular Article",
+  "mdm_articledescription": "REG with 5 LVs",
+  "mdm_description": "Parent article with 5 logistical variants",
+  "mdm_casesperpallet": 100,
+  "mdm_expenseitem": false,
+  "mdm_fooditem": true,
+  "mdm_hazard": false,
+  "mdm_sellablestatus": true,
+  
+  "mdm_articlerelationship_ParentArticle_mdm_article": [
+    {
+      "mdm_relationshipname": "REG-to-LV1",
+      "mdm_baseunit": "EA",
+      "mdm_unit": "EA",
+      "mdm_ChildArticle": {
+        "mdm_itemcode": "LV1_001",
+        "mdm_article_id": "Logistical Variant 1",
+        "mdm_articledescription": "LV1 Description",
+        "mdm_casesperpallet": 10,
+        "mdm_expenseitem": false,
+        "mdm_fooditem": true,
+        "mdm_hazard": false,
+        "mdm_sellablestatus": true
+      }
+    },
+    {
+      "mdm_relationshipname": "REG-to-LV2",
+      "mdm_baseunit": "EA",
+      "mdm_unit": "EA",
+      "mdm_ChildArticle": {
+        "mdm_itemcode": "LV2_001",
+        "mdm_article_id": "Logistical Variant 2",
+        "mdm_articledescription": "LV2 Description",
+        "mdm_casesperpallet": 20,
+        "mdm_expenseitem": false,
+        "mdm_fooditem": true,
+        "mdm_hazard": false,
+        "mdm_sellablestatus": true
+      }
+    },
+    {
+      "mdm_relationshipname": "REG-to-LV3",
+      "mdm_baseunit": "EA",
+      "mdm_unit": "EA",
+      "mdm_ChildArticle": {
+        "mdm_itemcode": "LV3_001",
+        "mdm_article_id": "Logistical Variant 3",
+        "mdm_articledescription": "LV3 Description",
+        "mdm_casesperpallet": 30,
+        "mdm_expenseitem": false,
+        "mdm_fooditem": true,
+        "mdm_hazard": false,
+        "mdm_sellablestatus": true
+      }
+    },
+    {
+      "mdm_relationshipname": "REG-to-LV4",
+      "mdm_baseunit": "EA",
+      "mdm_unit": "EA",
+      "mdm_ChildArticle": {
+        "mdm_itemcode": "LV4_001",
+        "mdm_article_id": "Logistical Variant 4",
+        "mdm_articledescription": "LV4 Description",
+        "mdm_casesperpallet": 40,
+        "mdm_expenseitem": false,
+        "mdm_fooditem": true,
+        "mdm_hazard": false,
+        "mdm_sellablestatus": true
+      }
+    },
+    {
+      "mdm_relationshipname": "REG-to-LV5",
+      "mdm_baseunit": "EA",
+      "mdm_unit": "EA",
+      "mdm_ChildArticle": {
+        "mdm_itemcode": "LV5_001",
+        "mdm_article_id": "Logistical Variant 5",
+        "mdm_articledescription": "LV5 Description",
+        "mdm_casesperpallet": 50,
+        "mdm_expenseitem": false,
+        "mdm_fooditem": true,
+        "mdm_hazard": false,
+        "mdm_sellablestatus": true
+      }
+    }
+  ]
+}
+```
+
+### Payload Structure Explained
+
+```
+{
+  // LEVEL 1: Parent Article (REG)
+  "mdm_itemcode": "REG_001",
+  ... other article fields ...
+  
+  // LEVEL 2: Array of relationships (one per child)
+  "mdm_articlerelationship_ParentArticle_mdm_article": [
+    
+    // Relationship 1 + Nested Child 1
+    {
+      "mdm_relationshipname": "REG-to-LV1",
+      "mdm_ChildArticle": {           ← NESTED LV1 CREATION
+        "mdm_itemcode": "LV1_001",
+        ... child fields ...
+      }
+    },
+    
+    // Relationship 2 + Nested Child 2
+    {
+      "mdm_relationshipname": "REG-to-LV2",
+      "mdm_ChildArticle": {           ← NESTED LV2 CREATION
+        "mdm_itemcode": "LV2_001",
+        ... child fields ...
+      }
+    },
+    
+    // ... more relationships ...
+  ]
+}
+```
+
+### Python Implementation
+
+```python
+import requests
+
+def create_reg_with_multiple_lvs(org_url, access_token, reg_data, lv_list):
+    """
+    Create 1 REG + N LVs + N Relationships in ONE API call!
+    
+    Args:
+        org_url: Dataverse organization URL
+        access_token: OAuth 2.0 Bearer token
+        reg_data: Dict with REG article fields
+        lv_list: List of dicts, each containing LV fields and relationship name
+                 [{"lv_data": {...}, "relationship_name": "..."}, ...]
+    
+    Returns:
+        Response dict with success status
+    """
+    
+    url = f"{org_url}/api/data/v9.2/mdm_articles"
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        "Prefer": "return=representation"
+    }
+    
+    # Build nested relationships array
+    relationships = []
+    for item in lv_list:
+        relationship = {
+            "mdm_relationshipname": item["relationship_name"],
+            "mdm_baseunit": "EA",
+            "mdm_unit": "EA",
+            "mdm_ChildArticle": item["lv_data"]  # Nested child creation!
+        }
+        relationships.append(relationship)
+    
+    # Full payload
+    payload = {
+        **reg_data,
+        "mdm_articlerelationship_ParentArticle_mdm_article": relationships
+    }
+    
+    response = requests.post(url, headers=headers, json=payload)
+    
+    if response.status_code == 201:
+        total_records = 1 + len(lv_list) + len(lv_list)  # REG + LVs + Relationships
+        print(f"SUCCESS: {total_records} records created in 1 API call!")
+        return {"success": True, "data": response.json()}
+    else:
+        print(f"FAILED: {response.status_code} - {response.text}")
+        return {"success": False, "error": response.text}
+
+
+# Usage Example
+reg = {
+    "mdm_itemcode": "REG_001",
+    "mdm_article_id": "Regular Article",
+    "mdm_articledescription": "REG with multiple LVs",
+    "mdm_casesperpallet": 100,
+    "mdm_expenseitem": False,
+    "mdm_fooditem": True,
+    "mdm_hazard": False,
+    "mdm_sellablestatus": True
+}
+
+lvs = [
+    {
+        "relationship_name": "REG-to-LV1",
+        "lv_data": {
+            "mdm_itemcode": "LV1_001",
+            "mdm_article_id": "Logistical Variant 1",
+            "mdm_casesperpallet": 10,
+            "mdm_expenseitem": False,
+            "mdm_fooditem": True,
+            "mdm_hazard": False,
+            "mdm_sellablestatus": True
+        }
+    },
+    {
+        "relationship_name": "REG-to-LV2",
+        "lv_data": {
+            "mdm_itemcode": "LV2_001",
+            "mdm_article_id": "Logistical Variant 2",
+            "mdm_casesperpallet": 20,
+            "mdm_expenseitem": False,
+            "mdm_fooditem": True,
+            "mdm_hazard": False,
+            "mdm_sellablestatus": True
+        }
+    },
+    # Add more LVs as needed...
+]
+
+result = create_reg_with_multiple_lvs(org_url, token, reg, lvs)
+```
+
+### Databricks Implementation
+
+```python
+def process_reg_with_lvs_from_dataframe(reg_row, lv_rows):
+    """
+    Process one REG with its associated LVs from DataFrame rows.
+    
+    reg_row: Single row for the REG article
+    lv_rows: DataFrame rows for LVs associated with this REG
+    """
+    
+    reg_data = {
+        "mdm_itemcode": reg_row["reg_itemcode"],
+        "mdm_article_id": reg_row["reg_name"],
+        "mdm_articledescription": reg_row["reg_description"],
+        "mdm_casesperpallet": int(reg_row["cases_per_pallet"]),
+        "mdm_expenseitem": False,
+        "mdm_fooditem": True,
+        "mdm_hazard": False,
+        "mdm_sellablestatus": True
+    }
+    
+    relationships = []
+    for lv_row in lv_rows.collect():
+        relationship = {
+            "mdm_relationshipname": f"{reg_row['reg_itemcode']}-to-{lv_row['lv_itemcode']}",
+            "mdm_baseunit": "EA",
+            "mdm_unit": "EA",
+            "mdm_ChildArticle": {
+                "mdm_itemcode": lv_row["lv_itemcode"],
+                "mdm_article_id": lv_row["lv_name"],
+                "mdm_articledescription": lv_row["lv_description"],
+                "mdm_casesperpallet": int(lv_row["lv_cases"]),
+                "mdm_expenseitem": False,
+                "mdm_fooditem": True,
+                "mdm_hazard": False,
+                "mdm_sellablestatus": True
+            }
+        }
+        relationships.append(relationship)
+    
+    payload = {
+        **reg_data,
+        "mdm_articlerelationship_ParentArticle_mdm_article": relationships
+    }
+    
+    # Make API call
+    response = requests.post(
+        f"{org_url}/api/data/v9.2/mdm_articles",
+        headers=headers,
+        json=payload
+    )
+    
+    return {
+        "reg_itemcode": reg_row["reg_itemcode"],
+        "lv_count": len(relationships),
+        "success": response.status_code == 201,
+        "total_records": 1 + len(relationships) * 2
+    }
+```
+
+### Script Reference
+
+```bash
+# Create 1 REG + 5 LVs (default)
+python scripts/article_multiple_children.py --env=DEV --auto-confirm
+
+# Create 1 REG + 10 LVs
+python scripts/article_multiple_children.py --env=DEV --children=10 --auto-confirm
+```
+
+---
+
+## 7. Approach B: Batch Upsert (Idempotent)
 
 ### Overview
 
@@ -624,7 +965,7 @@ def batch_upsert(org_url, access_token, parent_itemcode, child_itemcode,
 
 ---
 
-## 7. Approach C: Sequential POSTs
+## 8. Approach C: Sequential POSTs
 
 ### Overview
 
@@ -723,7 +1064,7 @@ def extract_guid_from_response(response):
 
 ---
 
-## 8. Navigation Properties Reference
+## 9. Navigation Properties Reference
 
 ### Understanding Navigation Properties
 
@@ -763,7 +1104,7 @@ GET {ORG_URL}/api/data/v9.2/EntityDefinitions(LogicalName='mdm_articlerelationsh
 
 ---
 
-## 9. Alternate Keys Reference
+## 10. Alternate Keys Reference
 
 ### What Are Alternate Keys?
 
@@ -814,7 +1155,7 @@ Content-Type: application/json
 
 ---
 
-## 10. Error Handling
+## 11. Error Handling
 
 ### Common Errors and Solutions
 
@@ -870,7 +1211,7 @@ def handle_dataverse_response(response):
 
 ---
 
-## 11. Databricks Implementation Notes
+## 12. Databricks Implementation Notes
 
 ### PySpark Integration
 
