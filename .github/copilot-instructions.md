@@ -207,3 +207,5 @@ templates/                       # User templates (git-ignored)
 - Cache directory (`.cache/`) and templates directory (`templates/`) auto-created on first run
 - Choice metadata includes display labels, not just values (user-friendly)
 - When implementing code changes, update relevant docs and this instructions file
+- Activate venv before running the application
+- Any implementation we will be making just add a option to confirm environment before executing operations
