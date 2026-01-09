@@ -5,6 +5,9 @@ env/
 ENV/
 .venv
 
+# proprietary files
+batch_response_*.txt
+
 # Python
 __pycache__/
 *.py[cod]
@@ -58,3 +61,4 @@ credentials.json
 secrets.json
 *.key
 *.pem
+

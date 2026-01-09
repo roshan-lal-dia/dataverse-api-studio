@@ -147,6 +147,7 @@ class BatchUpsertMultipleChildren:
         # PATCH with alternate key URL = Upsert
         parts.append(f"PATCH {self.org_url}/api/data/v9.2/{self.ARTICLE_ENDPOINT}({self.ALT_KEY}='{reg_itemcode}') HTTP/1.1")
         parts.append("Content-Type: application/json")
+        parts.append("Prefer: return=representation")
         parts.append("")
         parts.append(self._json_dumps(parent_payload))
         
@@ -177,6 +178,7 @@ class BatchUpsertMultipleChildren:
             parts.append("")
             parts.append(f"PATCH {self.org_url}/api/data/v9.2/{self.ARTICLE_ENDPOINT}({self.ALT_KEY}='{lv_itemcode}') HTTP/1.1")
             parts.append("Content-Type: application/json")
+            parts.append("Prefer: return=representation")
             parts.append("")
             parts.append(self._json_dumps(child_payload))
         
@@ -202,6 +204,7 @@ class BatchUpsertMultipleChildren:
             parts.append("")
             parts.append(f"POST {self.org_url}/api/data/v9.2/{self.RELATIONSHIP_ENDPOINT} HTTP/1.1")
             parts.append("Content-Type: application/json")
+            parts.append("Prefer: return=representation")
             parts.append("")
             parts.append(self._json_dumps(relationship_payload))
         
@@ -273,9 +276,35 @@ class BatchUpsertMultipleChildren:
             
             print(f"\n📡 Response: HTTP {response.status_code}")
             
+            # IMPORTANT: $batch returns individual responses for EACH subrequest!
+            # With Prefer: return=representation, each PATCH/POST gets its own response body
+            # showing the created/updated record data (including auto-generated fields)
+            response_text = response.text
+            
+            # Write full batch response to file for inspection
+            output_file = f"batch_response_{self.ts}.txt"
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write("=" * 80 + "\n")
+                f.write("BATCH RESPONSE - EACH OPERATION HAS ITS OWN RESPONSE\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(f"Total operations: {total_ops}\n")
+                f.write(f"Expected responses: {total_ops} (one per operation)\n\n")
+                f.write("Format: multipart/mixed with boundaries separating each response\n")
+                f.write("Each response includes HTTP status + body (if Prefer: return=representation)\n")
+                f.write("\n" + "=" * 80 + "\n\n")
+                f.write(response_text)
+            
+            print(f"\n💾 Full batch response saved to: {output_file}")
+            print(f"   📊 Contains {total_ops} individual responses (one per operation)")
+            print(f"   📝 Each PATCH/POST with 'Prefer: return=representation' returns full record data")
+            
+            # Show preview (truncated)
+            if response_text:
+                print("\n📝 Batch response preview (first 1500 chars):")
+                print(response_text[:1500])
+            
             if response.status_code in [200, 202]:
                 # Parse batch response to check for individual failures
-                response_text = response.text
                 
                 # Check if any operation failed
                 if "HTTP/1.1 4" in response_text or "HTTP/1.1 5" in response_text:
