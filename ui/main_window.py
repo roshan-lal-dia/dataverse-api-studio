@@ -12,6 +12,7 @@ from PyQt6.QtGui import QAction, QIcon
 from pathlib import Path
 
 from client.metadata_client import MetadataClient
+from client.entity_explorer import EntityExplorer
 from utils.config import Config
 from utils.template_manager import TemplateManager
 from utils.plugin_manager import PluginManager
@@ -24,6 +25,7 @@ from ui.tabs.query_tab import QueryTab
 from ui.tabs.query_builder_tab import QueryBuilderTab
 from ui.tabs.results_tab import ResultsTab
 from ui.tabs.excel_mapper_tab import ExcelMapperTab
+from ui.tabs.entity_explorer_tab import EntityExplorerTab
 
 
 class MainWindow(QMainWindow):
@@ -168,6 +170,9 @@ class MainWindow(QMainWindow):
         
         self.results_tab = ResultsTab()
         
+        self.entity_explorer_tab = EntityExplorerTab()
+        self.entity_explorer_tab.authenticated.connect(self._on_explorer_authenticated)
+        
         # Add tabs
         self.tab_widget.addTab(self.crud_tab, "📝 CRUD Operations")
         self.tab_widget.addTab(self.excel_mapper_tab, "📊 Excel Mapper")
@@ -175,6 +180,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.query_tab, "🔍 Query (Simple)")
         self.tab_widget.addTab(self.query_builder_tab, "🎨 Query Builder")
         self.tab_widget.addTab(self.results_tab, "📋 Results")
+        self.tab_widget.addTab(self.entity_explorer_tab, "🔎 Entity Explorer")
         
         # Store plugin tabs for later
         self.plugin_tabs = []
@@ -890,6 +896,14 @@ class MainWindow(QMainWindow):
         """Handle successful authentication"""
         self.client = client
         
+        # Create EntityExplorer by converting the authenticated MetadataClient
+        # EntityExplorer extends MetadataClient, so cast the client
+        if not isinstance(client, EntityExplorer):
+            entity_explorer = EntityExplorer.__new__(EntityExplorer)
+            entity_explorer.__dict__.update(client.__dict__)
+        else:
+            entity_explorer = client
+        
         # Update tabs with client
         self.crud_tab.set_client(client)
         self.batch_tab.set_client(client)
@@ -897,6 +911,7 @@ class MainWindow(QMainWindow):
         self.query_builder_tab.set_client(client)
         self.excel_mapper_tab.set_client(client)
         self.results_tab.set_client(client)
+        self.entity_explorer_tab.set_client(entity_explorer)
         
         # Update plugin tabs
         for tab_widget, _ in self.plugin_tabs:
@@ -909,6 +924,11 @@ class MainWindow(QMainWindow):
         # Update status bar
         env = self.auth_panel.get_current_environment()
         self.status_bar.showMessage(f"✅ Connected to {env}")
+    
+    def _on_explorer_authenticated(self, explorer: EntityExplorer):
+        """Handle entity explorer authentication"""
+        # Can add additional handling if needed
+        pass
     
     def _on_cache_refresh(self):
         """Handle cache refresh request"""
