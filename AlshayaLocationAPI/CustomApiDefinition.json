@@ -1,0 +1,47 @@
+{
+  "customApiName": "alshaya_GetLocationDetails",
+  "customApiDefinition": {
+    "displayName": "Alshaya Get Location Details",
+    "name": "alshaya_GetLocationDetails",
+    "uniqueName": "alshaya_GetLocationDetails",
+    "bindingType": "Global",
+    "isFunction": true,
+    "allowedCustomProcessingStepType": "None",
+    "description": "Retrieve comprehensive location details including relationships (Key Personnel and Business Hours)",
+    "executePrivilegeName": "prv_alshaya_GetLocationDetails",
+    "isPrivate": false,
+    "workflowSdkStepEnabled": false,
+    "pluginTypeName": "AlshayaLocationAPI.GetLocationDetailsPlugin",
+    "requestParameters": [
+      {
+        "name": "LocationId",
+        "uniqueName": "LocationId",
+        "displayName": "Location ID",
+        "type": "String",
+        "isOptional": false,
+        "description": "The unique identifier (GUID) of the location to retrieve"
+      }
+    ],
+    "responseProperties": [
+      {
+        "name": "LocationDetails",
+        "uniqueName": "LocationDetails",
+        "displayName": "Complete Location Details",
+        "type": "String",
+        "description": "JSON containing location data with Key Personnel and Business Hours included by default"
+      },
+      {
+        "name": "ExecutionTime",
+        "uniqueName": "ExecutionTime",
+        "displayName": "Execution Time (ms)",
+        "type": "Integer",
+        "description": "Time taken to execute the API call in milliseconds"
+      }
+    ]
+  },
+  "usage": {
+    "webApiCall": "GET [org]/api/data/v9.2/alshaya_GetLocationDetails(LocationId='[guid]')",
+    "description": "Call this Custom API via Web API with a location GUID",
+    "exampleCall": "GET https://orgname.api.crm.dynamics.com/api/data/v9.2/alshaya_GetLocationDetails(LocationId='12345678-1234-1234-1234-123456789012')"
+  }
+}

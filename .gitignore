@@ -62,3 +62,15 @@ secrets.json
 *.key
 *.pem
 
+//plugin stuff
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# msbuild output directories
+*/bin/
+*/obj/
+
+# vs intermediate directory
+*/.vs/
+
+# MSBuild Binary and Structured Log
+*.binlog
