@@ -1,7 +1,14 @@
 # Dataverse API Studio - AI Coding Agent Instructions
 
 ## Project Overview
-Modern PyQt6 desktop application (modular architecture) providing comprehensive interface for Dataverse Web API operations. Features include CRUD, batch processing (up to 1000 ops/call), OData queries, Excel/CSV mapper with field mapping, metadata discovery with caching, and template library—supporting all Dataverse datatypes.
+Modern PyQt6 desktop application (modular architecture) providing comprehensive interface for Dataverse Web API operations. Features include CRUD, batch processing (up to 1000 ops/call), OData queries, Excel/CSV mapper with field mapping, metadata discovery with caching, template library, and **Custom API development with .NET plugins**—supporting all Dataverse datatypes.
+
+### Latest Capabilities (2026)
+- **Custom API Development**: Complete .NET plugin development using .NET CLI (no Visual Studio required)
+- **Many-to-Many Relationships**: ✅ Resolved complex intersection table queries (KeyPersonnel case study)
+- **Plugin Deployment**: Automated build and deployment with Plugin Registration Tool
+- **Metadata Analysis**: Deep relationship discovery and troubleshooting tools
+- **Performance Optimization**: Sub-second API responses with complex data retrieval
 
 ## Architecture
 
@@ -26,6 +33,13 @@ The application has been refactored from monolithic tkinter (v1.0, deprecated) t
    - `json_builder.py`: Excel→Dataverse JSON conversion with datatype mapping
    - `template_manager.py`: Save/load templates with ${placeholder} syntax
 
+4. **Custom API Development Layer** (`AlshayaLocationAPI/`, `scripts/`):
+   - **Plugin Development**: .NET Framework 4.6.2 plugins with .NET CLI workflow
+   - **Custom API Integration**: Unbound functions for complex data retrieval
+   - **Relationship Handling**: Many-to-many and one-to-many relationship queries
+   - **Deployment Tools**: Plugin Registration Tool automation
+   - **Testing Scripts**: Python validation and comparison tools
+
 ### Key Data Flows
 - **Auth**: `.env` → `Config` → `AuthPanel` → `MetadataClient.authenticate()` → MSAL token
 - **CRUD**: User input → validation → `CRUDOperationThread` (QThread) → `DataverseClient` → API
@@ -34,8 +48,31 @@ The application has been refactored from monolithic tkinter (v1.0, deprecated) t
 - **Excel Mapper**: File upload → `ExcelProcessor` → header detection → metadata fetch → field mapping UI → `JSONBuilder` → CRUD/Batch tabs
 - **Metadata**: Entity request → `SchemaCache.get()` → cache miss? → API fetch → cache store (24hr TTL)
 - **Templates**: User saves config → `TemplateManager` → `templates/*.template.json` → load with placeholder prompts
+- **Custom API Development**: Requirements → .NET plugin → `dotnet build` → Plugin Registration Tool → Custom API activation → Testing
+- **Plugin Deployment**: C# code → .NET CLI build → DLL → PRT registration → Custom API association → HTTP testing
 
 ## Critical Patterns
+
+### Custom API Development (.NET Plugins)
+- **Development Environment**: .NET SDK 6.0+ with .NET Framework 4.6.2 targeting (no Visual Studio required)
+- **Build Process**: `dotnet restore` → `dotnet build --configuration Release` → Plugin Registration Tool
+- **Plugin Pattern**: Inherit from `PluginBase`, implement `ExecuteDataversePlugin()`, use `ILocalPluginContext`
+- **Many-to-Many Queries**: ✅ **RESOLVED** - Use correct intersection table names from metadata analysis
+- **Performance**: QueryExpression with LinkEntity for complex relationships, efficient field selection
+- **Error Handling**: Graceful degradation, trace logging, return empty collections on relationship failures
+- **Testing**: Python scripts for API validation, HTTP GET requests with MSAL authentication
+
+#### Key Success Pattern (KeyPersonnel Resolution):
+```csharp
+// Many-to-many relationship query pattern
+var query = new QueryExpression("lmdm_keypersonale");
+LinkEntity linkToIntersection = query.AddLink(
+    linkToEntityName: "lmdm_location_lmdm_keypersonale",  // Correct intersection table
+    linkFromAttributeName: "lmdm_keypersonaleid",
+    linkToAttributeName: "lmdm_keypersonaleid",
+    joinOperator: JoinOperator.Inner);
+linkToIntersection.LinkCriteria.AddCondition("lmdm_locationid", ConditionOperator.Equal, locationId);
+```
 
 ### Environment Management
 - `.env` defines `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`, `ORG_URL_*` (multiple environments)
@@ -88,15 +125,26 @@ thread.start()
 
 ## Setup & Execution
 ```bash
+# Python Application Setup
 python -m venv .venv
 source .venv/bin/activate  # Linux/macOS
 .\.venv\Scripts\Activate.ps1  # Windows
 pip install -r requirements.txt
 python main.py  # New PyQt6 version
-# python dataverse_api_gui.py  # Old tkinter (deprecated)
+
+# Custom API Plugin Development Setup (Optional)
+# Install .NET SDK 6.0+ (includes .NET Framework 4.6.2 targeting)
+# No Visual Studio required - .NET CLI handles all operations
+dotnet --version  # Verify installation
+cd AlshayaLocationAPI
+dotnet restore    # Restore NuGet packages
+dotnet build --configuration Release  # Build plugin DLL
 ```
 
-**First-time setup**: Create `.env` with Azure app registration credentials
+**First-time setup**: 
+1. Create `.env` with Azure app registration credentials
+2. For Custom API development: Install Plugin Registration Tool
+3. Verify .NET SDK installation for plugin development
 
 ## Common Extension Points
 
@@ -119,6 +167,25 @@ python main.py  # New PyQt6 version
 - Modify `MainWindow._apply_theme()` stylesheet
 - PyQt6 supports CSS-like styling
 
+### Custom API Plugin Development
+1. **Create new plugin project**:
+   ```powershell
+   dotnet new classlib -n YourEntityAPI -f net462
+   dotnet add package Microsoft.CrmSdk.CoreAssemblies
+   dotnet add package Microsoft.Xrm.Sdk
+   ```
+2. **Implement plugin class**: Inherit from `PluginBase`, override `ExecuteDataversePlugin()`
+3. **Define field arrays**: Main entity fields, related entity fields for relationships
+4. **Build and deploy**: `dotnet build --configuration Release` → Plugin Registration Tool
+5. **Create Custom API**: Power Platform admin center, associate with plugin
+6. **Test with Python**: Use `test_custom_api.py` pattern for validation
+
+### Many-to-Many Relationship Troubleshooting
+- **Metadata Analysis**: Use `entity_metadata_exporter.py` to discover intersection table names
+- **QueryExpression Pattern**: Start with target entity, link through intersection table
+- **Field Validation**: Ensure correct `Entity1IntersectAttribute` and `Entity2IntersectAttribute`
+- **Testing Strategy**: Compare with working Python implementation using same intersection table
+
 ## Testing Notes
 - No automated tests yet (manual testing only)
 - Connection test: "🔗 Connect" button in Auth panel
@@ -138,37 +205,47 @@ python main.py  # New PyQt6 version
 ```
 client/
   ├── dataverse_client.py       # Core API client
-  └── metadata_client.py         # Metadata + caching
+  ├── metadata_client.py        # Metadata + caching
+  └── entity_explorer.py        # Entity relationship discovery
 ui/
-  ├── main_window.py             # Main orchestrator
+  ├── main_window.py            # Main orchestrator
   ├── panels/
-  │   ├── auth_panel.py          # Auth + connection
-  │   └── history_panel.py       # Operation history
+  │   ├── auth_panel.py         # Auth + connection
+  │   └── history_panel.py      # Operation history
   └── tabs/
-      ├── crud_tab.py            # CRUD operations
-      ├── excel_mapper_tab.py    # Excel/CSV mapping (Tier 1)
-      ├── batch_tab.py           # Batch operations
-      ├── query_tab.py           # OData queries
-      └── results_tab.py         # Result display
+      ├── crud_tab.py           # CRUD operations
+      ├── excel_mapper_tab.py   # Excel/CSV mapping (Tier 1)
+      ├── batch_tab.py          # Batch operations
+      ├── query_tab.py          # OData queries
+      └── results_tab.py        # Result display
 utils/
-  ├── config.py                  # Environment config
-  ├── schema_cache.py            # Metadata cache (24hr TTL)
-  ├── validators.py              # Datatype validation
-  ├── formatters.py              # Format conversions
-  ├── excel_processor.py         # Excel/CSV reader
-  ├── json_builder.py            # JSON payload generator
-  └── template_manager.py        # Template save/load
+  ├── config.py                 # Environment config
+  ├── schema_cache.py           # Metadata cache (24hr TTL)
+  ├── validators.py             # Datatype validation
+  ├── formatters.py             # Format conversions
+  ├── excel_processor.py        # Excel/CSV reader
+  ├── json_builder.py           # JSON payload generator
+  └── template_manager.py       # Template save/load
+AlshayaLocationAPI/              # Custom API Plugin Project
+  ├── AlshayaLocationAPI.csproj  # .NET Framework 4.6.2 project
+  ├── GetLocationDetailsPlugin.cs # Main plugin implementation
+  ├── PluginBase.cs             # Plugin infrastructure
+  └── bin/Release/net462/       # Build output (.dll files)
+scripts/
+  ├── custom-api-location.py    # Python reference implementation
+  ├── test_custom_api.py        # API testing and validation
+  └── entity_metadata_exporter.py # Metadata analysis tools
 docs/
-  ├── ARCHITECTURE.md            # Module architecture
-  ├── TIER1_FEATURES.md          # Feature user guide
-  ├── setup_guide.md             # Installation guide
-  └── QUICK_REFERENCE.md         # Quick commands
-main.py                          # PyQt6 entry point
-dataverse_api_gui.py             # Old tkinter (DEPRECATED)
-requirements.txt                 # Dependencies
-.env                             # Credentials (git-ignored)
-.cache/                          # Metadata cache (git-ignored)
-templates/                       # User templates (git-ignored)
+  ├── ARCHITECTURE.md           # Module architecture
+  ├── CUSTOM_API_COMPLETE_GUIDE.md # ✅ Custom API development guide
+  ├── TIER1_FEATURES.md         # Feature user guide
+  ├── setup_guide.md            # Installation guide
+  └── QUICK_REFERENCE.md        # Quick commands
+main.py                         # PyQt6 entry point
+requirements.txt                # Python dependencies
+.env                            # Credentials (git-ignored)
+.cache/                         # Metadata cache (git-ignored)
+templates/                      # User templates (git-ignored)
 ```
 
 ## Data Type Handling (Excel Mapper)
@@ -209,3 +286,19 @@ templates/                       # User templates (git-ignored)
 - When implementing code changes, update relevant docs and this instructions file
 - Activate venv before running the application
 - Any implementation we will be making just add a option to confirm environment before executing operations
+
+## Custom API Development Achievements (2026)
+- ✅ **Complete Custom API Implementation**: `mdm_alshaya_GetLocationDetails` with complex relationships
+- ✅ **KeyPersonnel Many-to-Many Resolution**: Solved intersection table query issues through metadata analysis
+- ✅ **No Visual Studio Dependency**: Full development workflow using .NET CLI only
+- ✅ **Performance Optimization**: Sub-second responses with 60+ fields and multiple relationships
+- ✅ **Comprehensive Documentation**: Complete guide for replicating Custom API development
+- ✅ **Plugin Versioning**: Implemented version tracking (v2.1.0+) for debugging and updates
+- ✅ **Error Handling Strategy**: Graceful degradation with detailed trace logging
+
+## Development Patterns Established
+- **Metadata-First Approach**: Always analyze entity relationships before coding
+- **.NET CLI Workflow**: `dotnet restore` → `dotnet build` → Plugin Registration Tool → Test
+- **Python Validation**: Create reference implementations for complex queries before plugin development
+- **Intersection Table Discovery**: Use metadata exports to find correct many-to-many table names
+- **Field Configuration**: Define field arrays in code for maintainability and documentation

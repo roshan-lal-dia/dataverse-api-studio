@@ -1,0 +1,232 @@
+{
+  "mdm_articleallergenrelationship": [
+    {
+      "LogicalName": "createdby",
+      "SchemaName": "CreatedBy",
+      "DisplayName": "Created By",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "createdonbehalfby",
+      "SchemaName": "CreatedOnBehalfBy",
+      "DisplayName": "Created By (Delegate)",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "mdm_allergen",
+      "SchemaName": "mdm_Allergen",
+      "DisplayName": "Allergen",
+      "Targets": [
+        "mdm_lookupallergen"
+      ]
+    },
+    {
+      "LogicalName": "mdm_article",
+      "SchemaName": "mdm_Article",
+      "DisplayName": "Article",
+      "Targets": [
+        "mdm_article"
+      ]
+    },
+    {
+      "LogicalName": "modifiedby",
+      "SchemaName": "ModifiedBy",
+      "DisplayName": "Modified By",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "modifiedonbehalfby",
+      "SchemaName": "ModifiedOnBehalfBy",
+      "DisplayName": "Modified By (Delegate)",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "owningbusinessunit",
+      "SchemaName": "OwningBusinessUnit",
+      "DisplayName": "Owning Business Unit",
+      "Targets": [
+        "businessunit"
+      ]
+    },
+    {
+      "LogicalName": "owningteam",
+      "SchemaName": "OwningTeam",
+      "DisplayName": "Owning Team",
+      "Targets": [
+        "team"
+      ]
+    },
+    {
+      "LogicalName": "owninguser",
+      "SchemaName": "OwningUser",
+      "DisplayName": "Owning User",
+      "Targets": [
+        "systemuser"
+      ]
+    }
+  ],
+  "mdm_articlenutrientrelationship": [
+    {
+      "LogicalName": "createdby",
+      "SchemaName": "CreatedBy",
+      "DisplayName": "Created By",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "createdonbehalfby",
+      "SchemaName": "CreatedOnBehalfBy",
+      "DisplayName": "Created By (Delegate)",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "mdm_article",
+      "SchemaName": "mdm_Article",
+      "DisplayName": "Article",
+      "Targets": [
+        "mdm_article"
+      ]
+    },
+    {
+      "LogicalName": "mdm_nutrient",
+      "SchemaName": "mdm_Nutrient",
+      "DisplayName": "Nutrient",
+      "Targets": [
+        "mdm_lookupnutrient"
+      ]
+    },
+    {
+      "LogicalName": "modifiedby",
+      "SchemaName": "ModifiedBy",
+      "DisplayName": "Modified By",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "modifiedonbehalfby",
+      "SchemaName": "ModifiedOnBehalfBy",
+      "DisplayName": "Modified By (Delegate)",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "owningbusinessunit",
+      "SchemaName": "OwningBusinessUnit",
+      "DisplayName": "Owning Business Unit",
+      "Targets": [
+        "businessunit"
+      ]
+    },
+    {
+      "LogicalName": "owningteam",
+      "SchemaName": "OwningTeam",
+      "DisplayName": "Owning Team",
+      "Targets": [
+        "team"
+      ]
+    },
+    {
+      "LogicalName": "owninguser",
+      "SchemaName": "OwningUser",
+      "DisplayName": "Owning User",
+      "Targets": [
+        "systemuser"
+      ]
+    }
+  ],
+  "mdm_articlerelationship": [
+    {
+      "LogicalName": "createdby",
+      "SchemaName": "CreatedBy",
+      "DisplayName": "Created By",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "createdonbehalfby",
+      "SchemaName": "CreatedOnBehalfBy",
+      "DisplayName": "Created By (Delegate)",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "mdm_childarticle",
+      "SchemaName": "mdm_ChildArticle",
+      "DisplayName": "Related Article",
+      "Targets": [
+        "mdm_article"
+      ]
+    },
+    {
+      "LogicalName": "mdm_parentarticle",
+      "SchemaName": "mdm_ParentArticle",
+      "DisplayName": "Parent Article",
+      "Targets": [
+        "mdm_article"
+      ]
+    },
+    {
+      "LogicalName": "mdm_units",
+      "SchemaName": "mdm_Units",
+      "DisplayName": "Units",
+      "Targets": [
+        "mdm_lookupingredientunit"
+      ]
+    },
+    {
+      "LogicalName": "modifiedby",
+      "SchemaName": "ModifiedBy",
+      "DisplayName": "Modified By",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "modifiedonbehalfby",
+      "SchemaName": "ModifiedOnBehalfBy",
+      "DisplayName": "Modified By (Delegate)",
+      "Targets": [
+        "systemuser"
+      ]
+    },
+    {
+      "LogicalName": "owningbusinessunit",
+      "SchemaName": "OwningBusinessUnit",
+      "DisplayName": "Owning Business Unit",
+      "Targets": [
+        "businessunit"
+      ]
+    },
+    {
+      "LogicalName": "owningteam",
+      "SchemaName": "OwningTeam",
+      "DisplayName": "Owning Team",
+      "Targets": [
+        "team"
+      ]
+    },
+    {
+      "LogicalName": "owninguser",
+      "SchemaName": "OwningUser",
+      "DisplayName": "Owning User",
+      "Targets": [
+        "systemuser"
+      ]
+    }
+  ]
+}
