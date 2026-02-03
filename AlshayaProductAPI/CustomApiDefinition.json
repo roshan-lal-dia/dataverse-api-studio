@@ -1,0 +1,65 @@
+{
+  "CustomAPI": {
+    "UniqueName": "mdm_alshaya_GetProductDetails",
+    "Name": "mdm_alshaya_GetProductDetails",
+    "DisplayName": "Alshaya Get Product Details",
+    "Description": "Retrieves comprehensive product/article data including allergen relationships, nutrient relationships, and article hierarchies",
+    "BindingType": 0,
+    "BoundEntityLogicalName": null,
+    "IsFunction": true,
+    "IsPrivate": false,
+    "AllowedCustomProcessingStepType": 0,
+    "ExecutePrivilegeName": null,
+    "EnabledForWorkflow": true,
+    "SdkMessageName": "mdm_alshaya_GetProductDetails"
+  },
+  "RequestParameters": [
+    {
+      "UniqueName": "ArticleId",
+      "Name": "ArticleId",
+      "DisplayName": "Article ID",
+      "Description": "The unique identifier of the article/product to retrieve. Supports GUID, AIMS code, Item code, Barcode, or Article description.",
+      "Type": 10,
+      "IsOptional": false,
+      "LogicalEntityName": null
+    }
+  ],
+  "ResponseProperties": [
+    {
+      "UniqueName": "ProductDetails",
+      "Name": "ProductDetails", 
+      "DisplayName": "Product Details",
+      "Description": "Complete product data including all relationships as JSON string",
+      "Type": 10,
+      "LogicalEntityName": null
+    },
+    {
+      "UniqueName": "ExecutionTime",
+      "Name": "ExecutionTime",
+      "DisplayName": "Execution Time", 
+      "Description": "Time taken to execute the API call in milliseconds",
+      "Type": 1,
+      "LogicalEntityName": null
+    }
+  ],
+  "Notes": {
+    "Development": "Based on custom-api-product.py Python implementation",
+    "EntitySetName": "mdm_articles",
+    "PrimaryIdAttribute": "mdm_articleid",
+    "AlternateKeys": [
+      "mdm_aimscode",
+      "mdm_itemcode", 
+      "mdm_barcode",
+      "mdm_articledescription",
+      "mdm_article_id"
+    ],
+    "Relationships": {
+      "AllergenRelationships": "mdm_articleallergenrelationship_Article_mdm_article",
+      "NutrientRelationships": "mdm_articlenutrientrelationship_Article_mdm_article",
+      "ChildArticleRelationships": "mdm_articlerelationship_ParentArticle_mdm_article",
+      "ParentArticleRelationships": "mdm_articlerelationship_ChildArticle_mdm_article"
+    },
+    "FieldCount": "100+ fields configured in plugin",
+    "PluginVersion": "v1.0.0"
+  }
+}

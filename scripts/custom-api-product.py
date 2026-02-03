@@ -36,7 +36,7 @@ ALTERNATE_KEY_FIELDS = {
     "itemcode": "mdm_itemcode",
     "barcode": "mdm_barcode",
     "articledescription": "mdm_articledescription",
-    "articleid": "mdm_article_id"
+    "articleid": "mdm_article_id",
 }
 
 def get_access_token(resource_url):
@@ -141,72 +141,99 @@ def get_headers(access_token):
 # Note: Do NOT include fields with "name" suffix - these are virtual/calculated fields
 # Use OData annotations instead to get formatted values
 FORM_FIELDS = [
-    # Primary Identifiers
-    "mdm_articleid",
-    "mdm_article_id",
-    "mdm_autoarticleid",
-    
-    # General Information
-    "mdm_articledescription",
-    "mdm_articledescriptionarabic",
-    "mdm_description",
-    "_mdm_brand_value",
-    
-    # Product Codes & Identifiers
-    "mdm_aimscode",
-    "mdm_itemcode",
-    "mdm_barcode",
-    "mdm_alternatesupplierid",
-    
-    # Marketing Data
-    "mdm_articlemarketingname",
-    "mdm_articlemarketingnamearabic",
-    "mdm_articlemarketingdescription",
-    "mdm_articlemarketingdescriptionarabic",
-    
-    # Units & Measures
-    "mdm_articlebaseunit",
-    "mdm_articlestoreunit",
-    "mdm_articlecaseunit",
-    "mdm_casesperpallet",
-    
-    # Status & Classification
-    "_mdm_articlestatus_value",
-    "_mdm_articletype_value",
-    "_mdm_actioncode_value",
-    "_mdm_abcoption_value",
-    
-    # Supply Chain & Sourcing
-    "_mdm_articlesourcing_value",
-    "_mdm_countryoforigin_value",
-    "_mdm_buyvatcode_value",
-    "mdm_directtostore",
-    "mdm_applicablecountries",
-    
-    # Physical Properties
-    "mdm_averageweight",
-    "_mdm_averageweightunit_value",
-    "mdm_cbm",
-    #"mdm_packsize",
-    
-    # System Metadata  
-    "_ownerid_value",
-    "_owningbusinessunit_value",
-    "_createdby_value",
-    "createdon",
-    "_createdonbehalfby_value",
-    "_modifiedby_value",
-    "modifiedon",
-    "_modifiedonbehalfby_value",
-    "statecode",
-    "statuscode",
-    
-    # Additional Fields
-    "mdm_shelflife",
-    # "mdm_itemgrouptype",
-    #"mdm_versionstamp",
-    "importsequencenumber",
-    "overriddencreatedon"
+
+    # --- System & Metadata ---
+    "createdon", "modifiedon",
+    "_createdby_value", "_modifiedby_value","_ownerid_value", "_owningbusinessunit_value",
+    "_owningteam_value", "_owninguser_value", "mdm_transactioncompleteddate",
+
+    # --- Core Identification ---
+    "mdm_article_id", "mdm_articleid", "_mdm_article_value",
+    "mdm_itemcode", "mdm_legacyitemid", "mdm_variantcode","mdm_productcode", "mdm_nutrientid",
+    "mdm_plucode", "mdm_microsid",
+
+    # --- Naming & Marketing ---
+    "mdm_articlemarketingname", "mdm_articlemarketingnamearabic",
+    "mdm_articlemarketingdescription", "mdm_articlemarketingdescriptionarabic","mdm_recipename", "mdm_foodname",
+    "mdm_productname", "mdm_simphonydescription",
+
+    # --- Description & Text Details ---
+    "mdm_articledescription", "mdm_articledescriptionarabic",
+    "mdm_description", "mdm_recipedescription","mdm_logisticalvariantdescription", "mdm_microsdescription",
+    "mdm_ingredientlist", "mdm_nutriticserrormessage",
+    "mdm_storageinstructions",
+
+    # --- Classification & Logic ---
+    "_mdm_actioncode_value", "_mdm_articlesourcing_value",
+    "_mdm_articlestatus_value", "_mdm_articletype_value","_mdm_brand_value", "mdm_brandmultiselect",
+    "_mdm_abcoption_value", "_mdm_coreefficiency_value",
+    "_mdm_foodcategory_value","_mdm_itemtype_value", "mdm_assettype", "mdm_assettypes","mdm_commonflag", "mdm_goldenflag",
+
+    # --- Product Hierarchy (L1–L6) ---
+    "_mdm_producthierarchylevel1_value", "_mdm_producthierarchylevel2_value", "_mdm_producthierarchylevel3_value",
+    "_mdm_producthierarchylevel4_value","_mdm_producthierarchylevel5_value","_mdm_producthierarchylevel6_value",
+
+    # --- Units & Measures ---
+    "mdm_articlebaseunit", "mdm_articlecaseunit",
+    "mdm_articlestoreunit", "_mdm_requisitionunit_value",
+    "mdm_conversionfactor", "mdm_baseconversionfactor","mdm_pweight", "mdm_averageweight","_mdm_averageweightunit_value","mdm_cbm", "mdm_casesperpallet",
+    "mdm_productpacksize", "mdm_grossweight","_mdm_grossweightunit_value","mdm_height", "mdm_minstoragetemperature",
+    "mdm_maxstoragetemperature",
+
+    # --- Pricing & Financials ---
+    "mdm_purchaseprice", "_mdm_purchasepricecurrency_value",
+    "_mdm_purchasepriceunit_value", "mdm_purchasepriceflag", "mdm_foreigncost", "mdm_foreigncurrency", "mdm_productcostprice", "mdm_productcostpriceunit",
+    "mdm_costcontrol",
+
+    # --- Inventory & Stock Management ---
+    "mdm_stockmanaged", "mdm_stockmanagedflag",
+    "mdm_inventorymanageflag", "mdm_directtostore",
+    "mdm_minimumorderquantity", "mdm_moq",
+
+    # --- Supplier & Logistics ---
+    "mdm_suppliername", "mdm_supplierarticlecode",
+    "mdm_supplieraddress", "mdm_suppliercontactemailid",
+    "mdm_supplierphonenumber", "mdm_suppliersite", "mdm_supplierstatus", "_mdm_suppliercategory_value", "_mdm_suppliercurrency_value", "_mdm_supplierid_value", "_mdm_supplierdepartment_value", "_mdm_supplierincoterms_value",
+    "mdm_supplierlocation", "_mdm_orderableunitid_value", "mdm_leadtime", "mdm_sustainabilitytag", "mdm_tariffcode", "mdm_hscode",
+
+    # --- Compliance, Safety & Quality ---
+    "mdm_halal", "mdm_kosher",
+    "mdm_glutenfree", "mdm_vegan", "mdm_vegetarian",
+    "mdm_hazard", "mdm_expirable","mdm_batchexpirycontrol","mdm_shelflife", "mdm_shelflifeafterdefrosting","mdm_shelflifeafteropening","mdm_productshelflife", "_mdm_productshelflifeunit_value",
+    "_mdm_storagetemperature_value","mdm_maycontainallergen","mdm_foodcontactmaterial",
+
+    # --- Recipe & Food Structure ---
+    "mdm_recipeid", "mdm_recipegroup",
+    "mdm_numberofingredients",
+    "mdm_oilfryingusage", "mdm_condimentusage",
+    "mdm_consumableusage", "mdm_singleingredientitem",
+
+    # --- Nutrition & Serving ---
+    "mdm_servingsize", "_mdm_servingsizeunit_value",
+    "_mdm_sourceofnutritioninformation_value",
+    "mdm_isnutrientpostflag",
+
+    # --- Flags & Boolean Attributes ---
+    "mdm_enabled", "mdm_enable3pl",
+    "mdm_expenceflag", "mdm_expenseitem",
+    "mdm_fileupload_flag", "mdm_fooditem",
+    "mdm_pluflag", "mdm_goldenflag",
+    "mdm_sellableflag", "mdm_sellablestatus",
+    "mdm_proprietoryitem", "mdm_proprietoryitemflag",
+
+    # --- Visuals & Digital Assets ---
+    "_mdm_digitalasset_value",
+    "mdm_digitalassetlabel",
+    "mdm_digitalassettype",
+
+    # --- Miscellaneous / Remaining ---
+    "mdm_color", "mdm_market",
+    "mdm_material", "mdm_manufacturer",
+    "mdm_itemmodifiedby", "mdm_itemstatus",
+    "mdm_simphonyid", "_mdm_whoperationunit_value",
+    "_mdm_unitofmeasure_value"
+
+
 ]
 
 
@@ -243,7 +270,9 @@ def format_field(record, field_name):
     
     # If no formatted value, use the raw value as display
     if display_val is None:
-        display_val = val
+        # display_val = val
+        return val
+
     
     return {
         "Value": val,
@@ -412,7 +441,7 @@ def get_full_article_details(article_id, org_url, headers):
     
     # Entity Set Name is 'mdm_articles' (Plural) as confirmed in metadata
     url = f"{org_url}/api/data/v9.2/mdm_articles({article_id})?$select={select_query}"
-    
+
     print(f"\n[*] Step 2: Fetching main record...")
     print(f"[*] API Call:")
     print(f"    URL: {url[:100]}..." if len(url) > 100 else f"    URL: {url}")
@@ -640,9 +669,13 @@ def save_readable_report(data, filename):
         fields = data.get('Fields', {})
         
         for field_name, field_data in fields.items():
-            value = field_data.get('Value', '')
-            display = field_data.get('DisplayValue', '')
-            
+            # Handle both dict (with Value/DisplayValue) and plain str scenarios
+            if isinstance(field_data, dict):
+                value = field_data.get('Value', '')
+                display = field_data.get('DisplayValue', '')
+            else:
+                value = field_data
+                display = ''
             f.write(f"{field_name}:\n")
             f.write(f"  Value: {value}\n")
             if display and display != value:
